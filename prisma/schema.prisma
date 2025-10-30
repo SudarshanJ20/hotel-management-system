@@ -1,4 +1,5 @@
 // prisma/schema.prisma
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -8,6 +9,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
   id             String    @id @default(cuid())
   name           String?
@@ -15,6 +21,7 @@ model User {
   emailVerified  DateTime?
   image          String?
   password       String?   // Nullable for Google login users
+  role           Role      @default(USER)  // NEW
 
   accounts       Account[]
   sessions       Session[]

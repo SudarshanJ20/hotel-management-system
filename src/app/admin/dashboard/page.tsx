@@ -1,3 +1,5 @@
+// app/admin/dashboard/page.tsx
+import { auth } from "@/lib/auth";
 import Link from "next/link";
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -24,11 +26,16 @@ function CheckItem({ name, room, time, type }: { name: string; room: string; tim
   );
 }
 
-export default function DashboardPage() {
+export default async function AdminDashboardPage() {
+  const session = await auth();
+
   return (
     <div className="space-y-6">
+      {/* Greeting */}
       <div>
-        <h1 className="text-xl font-semibold">Dashboard</h1>
+        <h1 className="text-xl font-semibold">
+          Welcome, {session?.user?.name ?? session?.user?.email}
+        </h1>
         <p className="text-white/70 mt-1">Today’s overview of rooms, bookings, and guests.</p>
       </div>
 
