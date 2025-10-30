@@ -1,24 +1,78 @@
-import AuthForm from "@/components/AuthForm";
-import Link from "next/link";
+// app/register/page.tsx
+"use client";
+
+import { useState, FormEvent } from "react";
+import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
-  return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* Darker background */}
-      <div className="absolute inset-0 animate-gradient z-0" />
-      <div className="absolute inset-0 bg-black/70 z-0" />
-      <div className="absolute inset-0 bg-grid z-0" />
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
-      {/* Centered form */}
-      <div className="relative z-10 min-h-screen max-w-7xl mx-auto px-6 flex items-center justify-center">
-        <div className="w-full max-w-md">
-          <div className="w-full rounded-2xl glass p-6 sm:p-8 glow ring-1 ring-white/10">
-            <AuthForm mode="register" />
-          </div>
-          <p className="mt-4 text-center text-white/80 text-sm">
-            Already have an account? <Link href="/login" className="text-cyan-300 hover:underline">Sign in</Link>
-          </p>
-        </div>
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setErr("");
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setErr(j.error || "Failed to register");
+      setLoading(false);
+      return;
+    }
+
+    const si = await signIn("credentials", {
+      redirect: false,
+      email: form.email,
+      password: form.password,
+      callbackUrl: "/dashboard",
+    });
+    setLoading(false);
+    if (si?.ok) window.location.href = "/dashboard";
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-lg border p-6 shadow-sm">
+        <h1 className="text-2xl font-semibold mb-6 text-center">Create account</h1>
+        <form onSubmit={onSubmit} className="space-y-3">
+          <input
+            type="text"
+            placeholder="Full name"
+            value={form.name}
+            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+            className="w-full border rounded px-3 py-2"
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+            className="w-full border rounded px-3 py-2"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+            className="w-full border rounded px-3 py-2"
+            required
+          />
+          {err && <p className="text-red-600 text-sm">{err}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded bg-green-600 text-white py-2 hover:bg-green-700 disabled:opacity-50"
+          >
+            {loading ? "Creating..." : "Create account"}
+          </button>
+        </form>
       </div>
     </div>
   );
