@@ -17,21 +17,22 @@ const rooms = [
     title: "Deluxe King",
     info: "Sleeps 2 • City view",
     price: "From ₹4,999/night",
-    img: "https://images.unsplash.com/photo-1505692794403-34d4982b9bc7?fm=jpg&q=80&w=1600&fit=crop",
-  }, // [web:422]
+    img: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1600&q=80", // modern king bedroom
+  },
   {
     title: "Executive Suite",
     info: "Sleeps 3 • Living area",
     price: "From ₹7,999/night",
-    img: "https://images.unsplash.com/photo-1505691723518-36a5ac3b2d95?fm=jpg&q=80&w=1600&fit=crop",
-  }, // [web:423]
+    img: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1600&q=80", // suite with living area
+  },
   {
     title: "Twin Classic",
     info: "Sleeps 2 • Twin beds",
     price: "From ₹3,999/night",
-    img: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?fm=jpg&q=80&w=1600&fit=crop",
-  }, // [web:428]
+    img: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80", // twin beds
+  },
 ];
+
 
 
 
