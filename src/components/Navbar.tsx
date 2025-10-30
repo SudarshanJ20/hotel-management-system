@@ -2,32 +2,52 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-
-const links = [
-  { href: "/", label: "Home" },
-  { href: "/rooms", label: "Rooms" },
-  { href: "/bookings", label: "Bookings" },
-  { href: "/guests", label: "Guests" },
-  { href: "/admin/dashboard", label: "Dashboard" },
-];
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  const user = session?.user;
+  const user = session?.user as any | undefined;
   const name = user?.name || user?.email || "Account";
+  const role = user?.role || "USER";
+  const isAdmin = role === "ADMIN";
   const avatar =
     user?.image ||
     "https://ui-avatars.com/api/?name=U&background=0D8ABC&color=fff";
+
+  // Close menu when navigating
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Close on outside click
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const links = [
+    { href: "/", label: "Home" },
+    { href: "/rooms", label: "Rooms" },
+    { href: "/bookings", label: "Bookings" },
+    { href: "/guests", label: "Guests" },
+    // Only show Dashboard in top nav for admins
+    ...(isAdmin ? [{ href: "/admin/dashboard", label: "Dashboard" }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur bg-black/60 border-b border-white/10">
@@ -47,6 +67,7 @@ export default function Navbar() {
                   "text-sm font-medium transition-colors",
                   active ? "text-cyan-300" : "text-white/80 hover:text-cyan-300"
                 )}
+                aria-current={active ? "page" : undefined}
               >
                 {link.label}
               </Link>
@@ -61,18 +82,26 @@ export default function Navbar() {
           )}
 
           {status !== "loading" && !user && (
-            <Button asChild className="h-9 px-3 text-sm bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 text-white">
-              <Link href="/login">
-                <LogIn className="size-4 mr-2" /> Login
-              </Link>
-            </Button>
+            <>
+              <Button asChild className="h-9 px-3 text-sm bg-white/10 hover:bg-white/15">
+                <Link href="/register">Register</Link>
+              </Button>
+              <Button asChild className="h-9 px-3 text-sm bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 text-white">
+                <Link href="/login">
+                  <LogIn className="size-4 mr-2" /> Login
+                </Link>
+              </Button>
+            </>
           )}
 
           {user && (
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setOpen((v) => !v)}
                 className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-white/10"
+                aria-haspopup="menu"
+                aria-expanded={open}
+                aria-label="Account menu"
               >
                 <span className="hidden sm:block text-sm text-white/90">
                   {name}
@@ -88,29 +117,35 @@ export default function Navbar() {
 
               {open && (
                 <div
-                  className="absolute right-0 mt-2 w-44 rounded-md border border-white/10 bg-slate-900 py-1 text-sm shadow-lg"
-                  onMouseLeave={() => setOpen(false)}
+                  role="menu"
+                  className="absolute right-0 mt-2 w-48 rounded-md border border-white/10 bg-slate-900 py-1 text-sm shadow-lg"
                 >
                   <Link
                     href="/profile"
                     className="block px-3 py-2 hover:bg-white/10"
                     onClick={() => setOpen(false)}
+                    role="menuitem"
                   >
                     Profile
                   </Link>
+
+                  {/* Always show Dashboard entry; guard is inside the page/middleware */}
                   <Link
                     href="/admin/dashboard"
                     className="block px-3 py-2 hover:bg-white/10"
                     onClick={() => setOpen(false)}
+                    role="menuitem"
                   >
                     Dashboard
                   </Link>
+
                   <button
                     className="block w-full px-3 py-2 text-left hover:bg-white/10"
                     onClick={async () => {
                       setOpen(false);
                       await signOut({ callbackUrl: "/login" });
                     }}
+                    role="menuitem"
                   >
                     Sign out
                   </button>
