@@ -38,22 +38,34 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-lg border p-6 shadow-sm">
+      <div className="w-full max-w-sm rounded-lg border p-6 shadow-sm bg-white/5">
         <h1 className="text-2xl font-semibold mb-6 text-center">Create account</h1>
+
+        {/* Google sign up */}
+        <button
+          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          className="w-full flex items-center justify-center gap-2 rounded bg-red-600 text-white py-2 hover:bg-red-700"
+        >
+          Continue with Google
+        </button>
+
+        <div className="my-4 text-center text-sm text-gray-400">or</div>
+
+        {/* Email/password registration */}
         <form onSubmit={onSubmit} className="space-y-3">
           <input
             type="text"
             placeholder="Full name"
             value={form.name}
             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-gray-600 bg-transparent rounded px-3 py-2"
           />
           <input
             type="email"
             placeholder="Email"
             value={form.email}
             onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-gray-600 bg-transparent rounded px-3 py-2"
             required
           />
           <input
@@ -61,10 +73,10 @@ export default function RegisterPage() {
             placeholder="Password"
             value={form.password}
             onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-gray-600 bg-transparent rounded px-3 py-2"
             required
           />
-          {err && <p className="text-red-600 text-sm">{err}</p>}
+          {err && <p className="text-red-400 text-sm">{err}</p>}
           <button
             type="submit"
             disabled={loading}
