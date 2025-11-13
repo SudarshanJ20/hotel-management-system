@@ -35,7 +35,10 @@ function RoomCard({ id, title, price, capacity }: Pick<Room, "id" | "title" | "p
       <div className="text-sm text-white/70">Capacity: {capacity}</div>
       <div className="mt-3 flex items-center justify-between">
         <div className="text-white/90">{formatINR(price)}/night</div>
-        <Link href="/bookings/new" className="text-sm text-cyan-300 hover:underline">
+        <Link
+          href={`/bookings/new?roomId=${id}`}
+          className="text-sm text-cyan-300 hover:underline"
+        >
           Book
         </Link>
       </div>
@@ -55,9 +58,7 @@ export default async function RoomsPage() {
   const proto = hdrs.get("x-forwarded-proto") ?? "http";
   const base = host ? `${proto}://${host}` : "";
 
-  // Read search params server-side for SSR
-  const urlObj = new URL(`${base}/api/rooms${hdrs.get("x-invoke-path")?.includes("?") ? "" : ""}`);
-  // If you want query passthrough, Next 15 recommends reading search via request; here we keep simple:
+  // Keep simple; fetch all rooms (filters component can manage query client-side)
   const listUrl = `${base}/api/rooms${hdrs.get("x-search") ?? ""}`;
 
   const res = await fetch(listUrl, { cache: "no-store" });

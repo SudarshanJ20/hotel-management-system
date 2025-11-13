@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LogIn } from "lucide-react";
@@ -12,15 +12,19 @@ import { useSession, signOut } from "next-auth/react";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const user = session?.user as any | undefined;
   const name = user?.name || user?.email || "Account";
-  const role = user?.role || "USER";
+  const role = (user?.role as string) || "USER";
   const isAdmin = role === "ADMIN";
+  const isManager = role === "MANAGER";
+  const canSeeStaff = isAdmin || isManager;
+  const isSignedIn = !!user;
+  const isRegularUser = isSignedIn && !canSeeStaff;
+
   const avatar =
     user?.image ||
     "https://ui-avatars.com/api/?name=U&background=0D8ABC&color=fff";
@@ -43,10 +47,10 @@ export default function Navbar() {
   const links = [
     { href: "/", label: "Home" },
     { href: "/rooms", label: "Rooms" },
-    { href: "/bookings", label: "Bookings" },
-    { href: "/guests", label: "Guests" },
-    // Only show Dashboard in top nav for admins
-    ...(isAdmin ? [{ href: "/admin/dashboard", label: "Dashboard" }] : []),
+    ...(canSeeStaff ? [{ href: "/bookings", label: "Bookings" }] as const : []),
+    ...(canSeeStaff ? [{ href: "/guests", label: "Guests" }] as const : []),
+    ...(isAdmin ? [{ href: "/admin/dashboard", label: "Dashboard" }] as const : []),
+    ...(isRegularUser ? [{ href: "/my/bookings", label: "My bookings" }] as const : []),
   ];
 
   return (
@@ -129,15 +133,7 @@ export default function Navbar() {
                     Profile
                   </Link>
 
-                  {/* Always show Dashboard entry; guard is inside the page/middleware */}
-                  <Link
-                    href="/admin/dashboard"
-                    className="block px-3 py-2 hover:bg-white/10"
-                    onClick={() => setOpen(false)}
-                    role="menuitem"
-                  >
-                    Dashboard
-                  </Link>
+                  {/* Dashboard removed from dropdown for all roles */}
 
                   <button
                     className="block w-full px-3 py-2 text-left hover:bg-white/10"
