@@ -1,5 +1,4 @@
 // prisma/schema.prisma
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -21,13 +20,16 @@ model User {
   emailVerified  DateTime?
   image          String?
   password       String?   // Nullable for Google login users
-  role           Role      @default(USER)  // NEW
+  role           Role      @default(USER)
 
   accounts       Account[]
   sessions       Session[]
 
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  // Relations for convenience
+  bookings       Booking[] // user-created bookings (optional, if you tie bookings to users)
 }
 
 model Account {
@@ -76,10 +78,57 @@ model Room {
   image       String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  bookings    Booking[]
 }
 
 enum RoomStatus {
   AVAILABLE
   OCCUPIED
   MAINTENANCE
+  UNAVAILABLE
+}
+
+model Guest {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  phone     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings  Booking[]
+}
+
+model Booking {
+  id         String   @id @default(cuid())
+  roomId     String
+  guestId    String
+  userId     String?  // optional: which app user created it
+  checkIn    DateTime
+  checkOut   DateTime
+  guests     Int
+  status     BookingStatus @default(PENDING)
+  totalPrice Int
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  room       Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  guest      Guest  @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  user       User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([roomId])
+  @@index([guestId])
+  @@index([checkIn, checkOut])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
 }

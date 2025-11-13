@@ -1,10 +1,10 @@
-// src/app/api/rooms/route.ts
+// src/app/api/guests/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-// GET /api/rooms?q=&limit=&page=
+// GET /api/guests?q=&page=&limit=
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim() ?? "";
@@ -15,20 +15,21 @@ export async function GET(req: Request) {
   const where = q
     ? {
         OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
+          { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q, mode: "insensitive" } },
         ],
       }
     : {};
 
   const [items, total] = await Promise.all([
-    prisma.room.findMany({
+    prisma.guest.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: limit,
       skip: offset,
     }),
-    prisma.room.count({ where }),
+    prisma.guest.count({ where }),
   ]);
 
   return NextResponse.json({
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
   });
 }
 
-// POST /api/rooms - create a new room (admin only)
+// POST /api/guests - admin only
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "ADMIN") {
@@ -48,24 +49,21 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const title = body?.title?.toString().trim();
-  const price = body?.price;
-  const capacity = body?.capacity;
+  const name = body?.name?.toString().trim();
+  const email = body?.email?.toString().trim();
+  const phone = body?.phone?.toString().trim();
 
-  if (!title || price === undefined || capacity === undefined) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-  }
+  if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
-  const room = await prisma.room.create({
+  const guest = await prisma.guest.create({
     data: {
-      title,
-      description: body?.description?.toString() ?? "",
-      price: Number(price),
-      capacity: Number(capacity),
-      status: body?.status?.toString() ?? "AVAILABLE",
-      image: body?.image ?? null,
+      name,
+      email: email || null,
+      phone: phone || null,
+      address: body?.address?.toString() ?? null,
+      notes: body?.notes?.toString() ?? null,
     },
   });
 
-  return NextResponse.json(room, { status: 201 });
+  return NextResponse.json(guest, { status: 201 });
 }

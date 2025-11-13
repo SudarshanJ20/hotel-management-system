@@ -1,4 +1,4 @@
-// src/app/api/rooms/[id]/route.ts
+// src/app/api/guests/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -6,14 +6,14 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 type Params = { params: { id: string } };
 
-// GET /api/rooms/:id (public)
+// GET /api/guests/:id
 export async function GET(_req: Request, { params }: Params) {
-  const room = await prisma.room.findUnique({ where: { id: params.id } });
-  if (!room) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(room);
+  const guest = await prisma.guest.findUnique({ where: { id: params.id } });
+  if (!guest) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(guest);
 }
 
-// PATCH /api/rooms/:id (admin only)
+// PATCH /api/guests/:id (admin only)
 export async function PATCH(req: Request, { params }: Params) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "ADMIN") {
@@ -23,16 +23,15 @@ export async function PATCH(req: Request, { params }: Params) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const updated = await prisma.room
+  const updated = await prisma.guest
     .update({
       where: { id: params.id },
       data: {
-        title: body.title?.toString(),
-        description: body.description?.toString(),
-        price: body.price !== undefined ? Number(body.price) : undefined,
-        capacity: body.capacity !== undefined ? Number(body.capacity) : undefined,
-        status: body.status?.toString(),
-        image: body.image ?? undefined,
+        name: body.name?.toString(),
+        email: body.email?.toString() ?? null,
+        phone: body.phone?.toString() ?? null,
+        address: body.address?.toString() ?? null,
+        notes: body.notes?.toString() ?? null,
       },
     })
     .catch(() => null);
@@ -41,17 +40,15 @@ export async function PATCH(req: Request, { params }: Params) {
   return NextResponse.json(updated);
 }
 
-// DELETE /api/rooms/:id (admin only)
+// DELETE /api/guests/:id (admin only)
 export async function DELETE(_req: Request, { params }: Params) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const deleted = await prisma.room
-    .delete({ where: { id: params.id } })
-    .catch(() => null);
-
+  const deleted = await prisma.guest.delete({ where: { id: params.id } }).catch(() => null);
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   return NextResponse.json({ ok: true });
 }

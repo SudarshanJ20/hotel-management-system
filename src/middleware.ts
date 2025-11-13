@@ -15,9 +15,16 @@ export default withAuth(
     }
 
     // Admin-only guard
-    if (pathname.startsWith("/admin")) {
-      const role = token?.user?.role ?? token?.role;
-      if (role !== "ADMIN") {
+    const role = token?.user?.role ?? token?.role;
+    const adminOnly =
+      pathname.startsWith("/admin") ||
+      pathname === "/rooms/new" ||
+      /^\/rooms\/[^/]+\/edit$/.test(pathname) ||
+      pathname === "/api/rooms" ||           // POST create
+      /^\/api\/rooms\/[^/]+$/.test(pathname); // GET one is ok, but PATCH/DELETE should be admin
+
+    if (adminOnly) {
+      if (!role || role !== "ADMIN") {
         const url = req.nextUrl.clone();
         url.pathname = "/403";
         return NextResponse.redirect(url);
@@ -35,7 +42,10 @@ export default withAuth(
 // Only match what needs protection. Leave /login and /register public.
 export const config = {
   matcher: [
-    "/dashboard/:path*", // legacy path, redirects to /admin/dashboard
-    "/admin/:path*",     // protect admin area
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/rooms/new",
+    "/rooms/:id/edit",
   ],
 };
+

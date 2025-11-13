@@ -1,55 +1,41 @@
+// src/app/rooms/page.tsx
 import Link from "next/link";
+import { headers } from "next/headers";
+import { auth } from "@/auth";
+import RoomsFilters from "./rooms-filters";
 
-function RoomsFilters() {
-  return (
-    <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4 flex flex-wrap gap-3">
-      <input
-        className="h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/60 outline-none"
-        placeholder="City or hotel"
-      />
-      <input
-        type="date"
-        className="h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-      />
-      <input
-        type="date"
-        className="h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-      />
-      <select className="h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white/90 outline-none">
-        <option className="bg-slate-900">1 Guest</option>
-        <option className="bg-slate-900">2 Guests</option>
-        <option className="bg-slate-900">3 Guests</option>
-      </select>
-      <button className="h-10 px-4 rounded-md bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 text-white text-sm">
-        Search
-      </button>
-    </div>
-  );
+type Room = {
+  id: string;
+  title: string;
+  description: string | null;
+  price: number;
+  capacity: number;
+  status: string;
+  image: string | null;
+};
+
+function formatINR(n: number) {
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return `₹${n}`;
+  }
 }
 
-function RoomCard({
-  id,
-  name,
-  price,
-  type,
-}: {
-  id: string;
-  name: string;
-  price: string;
-  type: string;
-}) {
+function RoomCard({ id, title, price, capacity }: Pick<Room, "id" | "title" | "price" | "capacity">) {
   return (
     <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
       <Link href={`/rooms/${id}`} className="font-medium hover:underline">
-        {name}
+        {title}
       </Link>
-      <div className="text-sm text-white/70">{type}</div>
+      <div className="text-sm text-white/70">Capacity: {capacity}</div>
       <div className="mt-3 flex items-center justify-between">
-        <div className="text-white/90">{price}/night</div>
-        <Link
-          href="/bookings/new"
-          className="text-sm text-cyan-300 hover:underline"
-        >
+        <div className="text-white/90">{formatINR(price)}/night</div>
+        <Link href="/bookings/new" className="text-sm text-cyan-300 hover:underline">
           Book
         </Link>
       </div>
@@ -57,23 +43,84 @@ function RoomCard({
   );
 }
 
-export default function RoomsPage() {
+export const revalidate = 0;
+
+export default async function RoomsPage() {
+  const session = await auth();
+  const isAdmin = ((session?.user as any)?.role ?? "USER") === "ADMIN";
+
+  const hdrs = await headers();
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
+  const proto = hdrs.get("x-forwarded-proto") ?? "http";
+  const base = host ? `${proto}://${host}` : "";
+
+  // Read search params server-side for SSR
+  const urlObj = new URL(`${base}/api/rooms${hdrs.get("x-invoke-path")?.includes("?") ? "" : ""}`);
+  // If you want query passthrough, Next 15 recommends reading search via request; here we keep simple:
+  const listUrl = `${base}/api/rooms${hdrs.get("x-search") ?? ""}`;
+
+  const res = await fetch(listUrl, { cache: "no-store" });
+  if (!res.ok) {
+    const snippet = await res.text().then((t) => t.slice(0, 200)).catch(() => "");
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-semibold">Rooms</h1>
+            <p className="text-white/70 mt-1">Find the right room and check availability.</p>
+          </div>
+          {isAdmin && (
+            <Link href="/rooms/new" className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white">
+              New Room
+            </Link>
+          )}
+        </div>
+        <RoomsFilters />
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          Failed to load rooms: {res.status} {res.statusText}. {snippet}
+        </div>
+      </div>
+    );
+  }
+
+  const payload = await res.json().catch(() => ({ items: [] as Room[], pages: 1, page: 1 }));
+  const rooms = (payload.items as Room[]) ?? [];
+  const pages = Number(payload.pages ?? 1);
+  const page = Number(payload.page ?? 1);
+
+  // Broadcast total pages to client filter for pagination buttons
+  // eslint-disable-next-line no-undef
+  const script = `
+    window.dispatchEvent(new CustomEvent("rooms:pages", { detail: { pages: ${JSON.stringify(pages)} } }));
+  `;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Rooms</h1>
-        <p className="text-white/70 mt-1">
-          Find the right room and check availability.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Rooms</h1>
+          <p className="text-white/70 mt-1">Find the right room and check availability.</p>
+        </div>
+        {isAdmin && (
+          <Link href="/rooms/new" className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white">
+            New Room
+          </Link>
+        )}
       </div>
 
       <RoomsFilters />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <RoomCard id="1" name="Deluxe King" price="₹7,500" type="King • City view" />
-        <RoomCard id="2" name="Executive Twin" price="₹6,200" type="Twin • Garden view" />
-        <RoomCard id="3" name="Suite" price="₹12,000" type="Suite • Lounge access" />
-      </div>
+      {rooms.length === 0 ? (
+        <div className="text-white/70">No rooms found.</div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {rooms.map((r: Room) => (
+            <RoomCard key={r.id} id={r.id} title={r.title} price={r.price} capacity={r.capacity} />
+          ))}
+        </div>
+      )}
+
+      <script dangerouslySetInnerHTML={{ __html: script }} />
     </div>
   );
 }
