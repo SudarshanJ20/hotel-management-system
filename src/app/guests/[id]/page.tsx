@@ -16,7 +16,8 @@ export const revalidate = 0;
 
 export default async function GuestDetailsPage({ params }: { params: { id: string } }) {
   const session = await auth();
-  const isAdmin = ((session?.user as any)?.role ?? "USER") === "ADMIN";
+  const role = ((session?.user as any)?.role ?? "USER") as string;
+  const isPrivileged = ["ADMIN", "MANAGER"].includes(role);
 
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
@@ -47,7 +48,7 @@ export default async function GuestDetailsPage({ params }: { params: { id: strin
           {guest.phone && <p className="text-white/70">{guest.phone}</p>}
         </div>
         <div className="flex gap-2">
-          {isAdmin && (
+          {isPrivileged && (
             <Link href={`/guests/${guest.id}/edit`} className="px-3 py-1.5 bg-blue-600 text-white rounded">
               Edit
             </Link>

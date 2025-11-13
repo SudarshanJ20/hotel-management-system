@@ -23,10 +23,13 @@ export async function GET(_req: Request, { params }: Params) {
   return NextResponse.json(b);
 }
 
-// PATCH /api/bookings/:id
+// PATCH /api/bookings/:id (ADMIN or MANAGER)
 export async function PATCH(req: Request, { params }: Params) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = (session?.user as any)?.role;
+  if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -50,7 +53,6 @@ export async function PATCH(req: Request, { params }: Params) {
     return NextResponse.json({ error: "Guests exceed room capacity" }, { status: 400 });
   }
 
-  // Check conflicts except this booking
   const conflicts = await prisma.booking.findMany({
     where: { roomId, NOT: { id: params.id } },
     select: { checkIn: true, checkOut: true },
@@ -78,10 +80,13 @@ export async function PATCH(req: Request, { params }: Params) {
   return NextResponse.json(updated);
 }
 
-// DELETE /api/bookings/:id
+// DELETE /api/bookings/:id (ADMIN or MANAGER)
 export async function DELETE(_req: Request, { params }: Params) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = (session?.user as any)?.role;
+  if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const deleted = await prisma.booking.delete({ where: { id: params.id } }).catch(() => null);
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -6,9 +6,17 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// 1) Configure an admin allowlist via env for quick admin access
+// Allowlists via env
+// ADMIN has highest privileges. MANAGER can do CRUD for rooms/guests/bookings but not site settings.
 const ADMIN_EMAILS = new Set<string>(
   [process.env.ADMIN_EMAIL].filter((e): e is string => !!e)
+);
+
+const MANAGER_EMAILS = new Set<string>(
+  (process.env.MANAGER_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean)
 );
 
 export const authOptions: NextAuthOptions = {
@@ -57,12 +65,11 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // 2) jwt: attach role to the token
+    // Attach role to JWT (priority: ADMIN > MANAGER > DB role > USER)
     async jwt({ token, user }) {
-      // Determine user id
       let userId = (user as any)?.id ?? token.sub;
 
-      // If still no id, try email lookup (first-time OAuth)
+      // First-time OAuth: get id by email
       if (!userId && token.email) {
         const byEmail = await prisma.user.findUnique({
           where: { email: token.email as string },
@@ -71,7 +78,7 @@ export const authOptions: NextAuthOptions = {
         if (byEmail) userId = String(byEmail.id);
       }
 
-      // Read role from DB if we have an id
+      // Load DB role if id exists
       if (userId) {
         const dbUser = await prisma.user.findUnique({
           where: { id: String(userId) },
@@ -80,24 +87,30 @@ export const authOptions: NextAuthOptions = {
 
         if (dbUser) {
           (token as any).sub = String(dbUser.id);
+          const email = dbUser.email ?? (token.email as string | undefined);
 
-          // If email is in admin allowlist, force ADMIN in token
-          const isAllowlisted = dbUser.email && ADMIN_EMAILS.has(dbUser.email);
-          (token as any).role = isAllowlisted ? "ADMIN" : dbUser.role ?? (token as any).role;
+          if (email && ADMIN_EMAILS.has(email)) {
+            (token as any).role = "ADMIN";
+          } else if (email && MANAGER_EMAILS.has(email)) {
+            (token as any).role = "MANAGER";
+          } else {
+            (token as any).role = dbUser.role ?? (token as any).role;
+          }
         }
       }
 
-      // As a fallback, if user just signed in with Google and is allowlisted, set ADMIN
-      if (user && (user as any).email && ADMIN_EMAILS.has((user as any).email)) {
-        (token as any).role = "ADMIN";
+      // Fresh Google sign-in before DB role update
+      if (user && (user as any).email) {
+        const email = (user as any).email as string;
+        if (ADMIN_EMAILS.has(email)) (token as any).role = "ADMIN";
+        else if (MANAGER_EMAILS.has(email)) (token as any).role = "MANAGER";
       }
 
-      // Default to USER if still unset
       if (!(token as any).role) (token as any).role = "USER";
       return token;
     },
 
-    // 3) session: mirror role to session.user.role
+    // Mirror role into session
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any)?.sub;
@@ -107,7 +120,6 @@ export const authOptions: NextAuthOptions = {
     },
   },
 
-  // 4) custom pages
   pages: { signIn: "/login" },
 };
 

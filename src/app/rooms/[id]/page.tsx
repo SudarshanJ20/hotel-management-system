@@ -18,9 +18,10 @@ export const revalidate = 0;
 export default async function RoomDetailsPage({ params }: { params: { id: string } }) {
   const { id } = params;
 
-  // Get session to decide if admin
+  // Get session to decide if privileged
   const session = await auth();
-  const isAdmin = (session?.user as any)?.role === "ADMIN";
+  const role = ((session?.user as any)?.role ?? "USER") as string;
+  const isPrivileged = ["ADMIN", "MANAGER"].includes(role);
 
   // Next 15: headers() must be awaited
   const hdrs = await headers();
@@ -35,7 +36,7 @@ export default async function RoomDetailsPage({ params }: { params: { id: string
       <div className="p-6 text-white/80">
         Room not found.
         <div className="mt-4">
-            <Link href="/rooms" className="underline text-cyan-300">Back to Rooms</Link>
+          <Link href="/rooms" className="underline text-cyan-300">Back to Rooms</Link>
         </div>
       </div>
     );
@@ -52,7 +53,7 @@ export default async function RoomDetailsPage({ params }: { params: { id: string
           <div className="text-white/90 mt-1">₹{room.price} / night</div>
         </div>
         <div className="flex gap-2">
-          {isAdmin && (
+          {isPrivileged && (
             <Link href={`/rooms/${room.id}/edit`} className="px-3 py-1.5 bg-blue-600 text-white rounded">
               Edit
             </Link>

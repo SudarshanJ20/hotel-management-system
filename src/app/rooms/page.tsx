@@ -47,7 +47,8 @@ export const revalidate = 0;
 
 export default async function RoomsPage() {
   const session = await auth();
-  const isAdmin = ((session?.user as any)?.role ?? "USER") === "ADMIN";
+  const role = ((session?.user as any)?.role ?? "USER") as string;
+  const isPrivileged = ["ADMIN", "MANAGER"].includes(role);
 
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
@@ -69,7 +70,7 @@ export default async function RoomsPage() {
             <h1 className="text-xl font-semibold">Rooms</h1>
             <p className="text-white/70 mt-1">Find the right room and check availability.</p>
           </div>
-          {isAdmin && (
+          {isPrivileged && (
             <Link href="/rooms/new" className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white">
               New Room
             </Link>
@@ -89,7 +90,6 @@ export default async function RoomsPage() {
   const page = Number(payload.page ?? 1);
 
   // Broadcast total pages to client filter for pagination buttons
-  // eslint-disable-next-line no-undef
   const script = `
     window.dispatchEvent(new CustomEvent("rooms:pages", { detail: { pages: ${JSON.stringify(pages)} } }));
   `;
@@ -101,7 +101,7 @@ export default async function RoomsPage() {
           <h1 className="text-xl font-semibold">Rooms</h1>
           <p className="text-white/70 mt-1">Find the right room and check availability.</p>
         </div>
-        {isAdmin && (
+        {isPrivileged && (
           <Link href="/rooms/new" className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white">
             New Room
           </Link>

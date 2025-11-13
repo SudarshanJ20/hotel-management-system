@@ -44,9 +44,10 @@ export async function GET(req: Request) {
 // POST /api/guests - admin only
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+const role = (session?.user as any)?.role;
+if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
 
   const body = await req.json().catch(() => null);
   const name = body?.name?.toString().trim();

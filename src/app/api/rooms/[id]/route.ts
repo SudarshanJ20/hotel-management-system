@@ -44,9 +44,11 @@ export async function PATCH(req: Request, { params }: Params) {
 // DELETE /api/rooms/:id (admin only)
 export async function DELETE(_req: Request, { params }: Params) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+const role = (session?.user as any)?.role;
+if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
 
   const deleted = await prisma.room
     .delete({ where: { id: params.id } })

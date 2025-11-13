@@ -17,7 +17,8 @@ export const revalidate = 0;
 
 export default async function GuestsPage() {
   const session = await auth();
-  const isAdmin = ((session?.user as any)?.role ?? "USER") === "ADMIN";
+  const role = ((session?.user as any)?.role ?? "USER") as string;
+  const isPrivileged = ["ADMIN", "MANAGER"].includes(role);
 
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
@@ -36,7 +37,7 @@ export default async function GuestsPage() {
             <h1 className="text-xl font-semibold">Guests</h1>
             <p className="text-white/70 mt-1">Manage guest records.</p>
           </div>
-          {isAdmin && (
+          {isPrivileged && (
             <Link href="/guests/new" className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white">
               New Guest
             </Link>
@@ -65,7 +66,7 @@ export default async function GuestsPage() {
           <h1 className="text-xl font-semibold">Guests</h1>
           <p className="text-white/70 mt-1">Manage guest records.</p>
         </div>
-        {isAdmin && (
+        {isPrivileged && (
           <Link href="/guests/new" className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white">
             New Guest
           </Link>

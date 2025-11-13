@@ -42,10 +42,11 @@ export async function GET(req: Request) {
 
 // POST /api/rooms - create a new room (admin only)
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+ const session = await getServerSession(authOptions);
+const role = (session?.user as any)?.role;
+if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
 
   const body = await req.json().catch(() => null);
   const title = body?.title?.toString().trim();
