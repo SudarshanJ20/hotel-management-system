@@ -16,11 +16,12 @@ export async function GET(req: Request) {
   const roomId = searchParams.get("roomId") ?? undefined;
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-  const me = searchParams.get("me"); // "1" to scope to current user
+  const me = searchParams.get("me") === "1"; // true when scoping to current user
   const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "12", 10), 1), 50);
   const offset = (page - 1) * limit;
 
+  // Build base where
   const where: any = {};
   if (status) where.status = status;
   if (guestId) where.guestId = guestId;
@@ -32,12 +33,9 @@ export async function GET(req: Request) {
   }
 
   // If caller asks for their own bookings, scope by userId from session
-  if (me === "1") {
+  if (me) {
     const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ items: [], total: 0, page, limit, pages: 1 });
-    }
-    const uid = (session.user as any)?.id;
+    const uid = (session?.user as any)?.id as string | undefined;
     if (!uid) {
       return NextResponse.json({ items: [], total: 0, page, limit, pages: 1 });
     }
@@ -153,6 +151,5 @@ export async function POST(req: Request) {
     select: { id: true },
   });
 
-  // Return minimal payload for client redirect
   return NextResponse.json(created, { status: 201 });
 }

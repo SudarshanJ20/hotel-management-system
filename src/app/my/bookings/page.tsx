@@ -29,6 +29,15 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`${base} ${cls}`}>{status}</span>;
 }
 
+function buildBaseUrl(h: Headers) {
+  const xfProto = h.get("x-forwarded-proto");
+  const xfHost = h.get("x-forwarded-host");
+  const host = h.get("host");
+  if (xfProto && xfHost) return `${xfProto}://${xfHost}`;
+  if (host) return `http://${host}`;
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+}
+
 export default async function MyBookingsPage() {
   const session = await auth();
   if (!session?.user) {
@@ -40,19 +49,20 @@ export default async function MyBookingsPage() {
     );
   }
 
-  const hdrs = await headers();
-  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
-  const proto = hdrs.get("x-forwarded-proto") ?? "http";
-  const base = host ? `${proto}://${host}` : "";
+  const h = await headers();
+  const base = buildBaseUrl(h);
 
+  // Force me=1 so API scopes by current session userId
   const data = await fetchJSON(`${base}/api/bookings?me=1`);
-  const items = data?.items ?? [];
+  const items = Array.isArray(data?.items) ? data.items : [];
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">My Bookings</h1>
-        <Link href="/bookings/new" className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm">New booking</Link>
+        <Link href="/bookings/new" className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm">
+          New booking
+        </Link>
       </div>
 
       <p className="text-xs text-white/60">
@@ -63,7 +73,9 @@ export default async function MyBookingsPage() {
         <div className="rounded-xl border border-white/10 bg-slate-900/50 p-6">
           <div className="text-white/80">No bookings yet.</div>
           <div className="mt-2">
-            <Link href="/bookings/new" className="text-cyan-300 underline">Create your first booking</Link>
+            <Link href="/bookings/new" className="text-cyan-300 underline">
+              Create your first booking
+            </Link>
           </div>
         </div>
       ) : (
@@ -71,7 +83,6 @@ export default async function MyBookingsPage() {
           {items.map((b: any) => {
             const now = new Date();
             const ci = new Date(b.checkIn);
-            const co = new Date(b.checkOut);
             const future = +ci > +now;
             const cancellable = future && b.status === "CONFIRMED";
             return (
