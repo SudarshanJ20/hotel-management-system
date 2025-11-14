@@ -1,8 +1,8 @@
 // app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
-import Navbar from "@/components/Navbar";
 import SessionProvider from "@/components/SessionProvider";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Hotel Management System",
@@ -25,26 +25,8 @@ export default function RootLayout({
             <div className="absolute inset-0 bg-slate-900/65" />
           </div>
 
-          {/* App shell */}
-          <div className="flex min-h-screen flex-col">
-            <Navbar />
-
-            <main className="flex-1">
-              {/* Full width, just with some padding */}
-              <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-                {children}
-              </div>
-            </main>
-
-            <footer className="border-t border-white/10 mt-4">
-              <div className="w-full px-4 sm:px-6 lg:px-8 py-4 text-xs text-white/50 flex items-center justify-between">
-                <span>
-                  © {new Date().getFullYear()} Hotel Management System
-                </span>
-                <span>Built with Next.js &amp; Tailwind CSS</span>
-              </div>
-            </footer>
-          </div>
+          {/* App shell with conditional footer */}
+          <AppShell>{children}</AppShell>
         </SessionProvider>
       </body>
     </html>

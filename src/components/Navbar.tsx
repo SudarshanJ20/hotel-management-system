@@ -30,13 +30,11 @@ export default function Navbar() {
     user?.image ||
     "https://ui-avatars.com/api/?name=U&background=0D8ABC&color=fff";
 
-  // Close desktop dropdown when navigating
   useEffect(() => {
     setOpen(false);
     setMobileOpen(false);
   }, [pathname]);
 
-  // Close desktop dropdown on outside click
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!menuRef.current) return;
@@ -49,12 +47,8 @@ export default function Navbar() {
   const links = [
     { href: "/", label: "Home" },
     { href: "/rooms", label: "Rooms" },
-    ...(canSeeStaff
-      ? [{ href: "/bookings", label: "Bookings" }] as const
-      : []),
-    ...(canSeeStaff
-      ? [{ href: "/guests", label: "Guests" }] as const
-      : []),
+    ...(canSeeStaff ? [{ href: "/bookings", label: "Bookings" }] as const : []),
+    ...(canSeeStaff ? [{ href: "/guests", label: "Guests" }] as const : []),
     ...(isAdmin
       ? [{ href: "/admin/dashboard", label: "Dashboard" }] as const
       : []),
@@ -64,7 +58,7 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="w-full">
+    <header className="w-full z-50 relative">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="mt-3 rounded-full border border-white/10 bg-black/40 backdrop-blur-xl shadow-sm">
           <div className="flex h-16 items-center justify-between px-4 sm:px-5">
@@ -109,13 +103,11 @@ export default function Navbar() {
 
             {/* Right side: auth + mobile button */}
             <div className="flex items-center gap-2">
-              {/* Auth loading skeleton */}
               {status === "loading" && (
                 <div className="hidden sm:block h-9 w-28 rounded-full bg-white/10 animate-pulse" />
               )}
 
-              {/* Not signed in */}
-              {status !== "loading" && !user && (
+              {!user && status !== "loading" && (
                 <div className="hidden sm:flex items-center gap-2">
                   <Button
                     asChild
@@ -134,7 +126,6 @@ export default function Navbar() {
                 </div>
               )}
 
-              {/* Signed in: desktop account dropdown */}
               {user && (
                 <div className="hidden sm:block relative" ref={menuRef}>
                   <button
@@ -237,7 +228,6 @@ export default function Navbar() {
                 })}
               </nav>
 
-              {/* Mobile auth section */}
               <div className="flex items-center justify-between pt-1">
                 {!user && (
                   <div className="flex gap-2">
