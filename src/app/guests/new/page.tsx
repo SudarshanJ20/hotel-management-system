@@ -18,7 +18,10 @@ export default function NewGuestPage() {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) return setError("Name is required");
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
 
     setSubmitting(true);
     const res = await fetch("/api/guests", {
@@ -44,84 +47,99 @@ export default function NewGuestPage() {
     router.refresh();
   };
 
+  const label =
+    "block text-xs font-medium mb-1 text-white/80 tracking-wide uppercase";
+  const input =
+    "w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-cyan-400/40";
+
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h1 className="text-xl font-semibold">New Guest</h1>
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold text-white">New guest</h1>
+        <p className="mt-1 text-sm text-white/70">
+          Create a guest profile to re‑use for future bookings.
+        </p>
+      </div>
 
-      {error && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
+      <div className="glass rounded-3xl p-6 border border-white/15 space-y-5">
+        {error && (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200">
+            {error}
+          </div>
+        )}
 
-      <form onSubmit={submit} className="space-y-4">
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Name</label>
-          <input
-            className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Guest name"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={submit} className="space-y-5">
           <div>
-            <label className="block text-sm text-white/80 mb-1">Email</label>
+            <label className={label}>Name</label>
             <input
-              className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="guest@example.com"
-              type="email"
+              className={input}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Guest name"
             />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={label}>Email</label>
+              <input
+                className={input}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="guest@example.com"
+                type="email"
+              />
+            </div>
+            <div>
+              <label className={label}>Phone</label>
+              <input
+                className={input}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 90000 00000"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="block text-sm text-white/80 mb-1">Phone</label>
-            <input
-              className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+91 90000 00000"
+            <label className={label}>Address</label>
+            <textarea
+              className={`${input} min-h-24 py-2 resize-none`}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Street, city, state, country"
             />
           </div>
-        </div>
 
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Address</label>
-          <textarea
-            className="w-full min-h-24 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-        </div>
+          <div>
+            <label className={label}>Notes</label>
+            <textarea
+              className={`${input} min-h-24 py-2 resize-none`}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Preferences, important info, etc."
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Notes</label>
-          <textarea
-            className="w-full min-h-24 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="h-10 px-4 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
-          >
-            {submitting ? "Creating..." : "Create"}
-          </button>
-          <button
-            type="button"
-            className="h-10 px-4 rounded-md border border-white/20 text-white text-sm"
-            onClick={() => history.back()}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+          <div className="flex flex-wrap gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-glow inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 px-6 py-2.5 text-sm font-medium text-white shadow-md disabled:opacity-60"
+            >
+              {submitting ? "Creating…" : "Create guest"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-full border border-white/25 bg-transparent px-5 py-2.5 text-sm font-medium text-white/85 hover:bg-white/10"
+              onClick={() => router.back()}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

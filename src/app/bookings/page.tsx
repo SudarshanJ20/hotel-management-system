@@ -16,6 +16,20 @@ type Booking = {
 
 export const revalidate = 0;
 
+function StatusBadge({ status }: { status: string }) {
+  const base =
+    "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border";
+  const map: Record<string, string> = {
+    CONFIRMED: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+    PENDING: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+    CANCELLED: "border-red-500/40 bg-red-500/10 text-red-300",
+    CHECKED_IN: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+    CHECKED_OUT: "border-indigo-500/40 bg-indigo-500/10 text-indigo-300",
+  };
+  const cls = map[status] ?? "border-white/25 bg-white/5 text-white/70";
+  return <span className={`${base} ${cls}`}>{status}</span>;
+}
+
 export default async function BookingsPage() {
   const session = await auth();
   const role = ((session?.user as any)?.role ?? "USER") as string;
@@ -24,18 +38,17 @@ export default async function BookingsPage() {
   // Guard: only staff can view this page; users should use /my/bookings
   if (!isPrivileged) {
     return (
-      <div className="p-6">
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
-          This page is for staff. View your bookings in My bookings.
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+          This page is for staff to manage all bookings. To view your own
+          stays, use <span className="font-semibold">My bookings</span>.
         </div>
-        <div className="mt-4">
-          <Link
-            href="/my/bookings"
-            className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm text-white"
-          >
-            Go to My bookings
-          </Link>
-        </div>
+        <Link
+          href="/my/bookings"
+          className="inline-flex items-center rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 px-5 py-2.5 text-xs font-medium text-white shadow-sm"
+        >
+          Go to My bookings
+        </Link>
       </div>
     );
   }
@@ -53,7 +66,7 @@ export default async function BookingsPage() {
   if (!res.ok) {
     const msg = await res.text().catch(() => "");
     return (
-      <div className="p-6 text-red-300">
+      <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
         Failed to load bookings: {res.status} {res.statusText}. {msg}
       </div>
     );
@@ -66,48 +79,61 @@ export default async function BookingsPage() {
   const created = (hdrs.get("x-search") || "").includes("created=1");
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Bookings</h1>
-          <p className="text-white/70 mt-1">Manage and review bookings.</p>
+          <h1 className="text-2xl font-semibold text-white">Bookings</h1>
+          <p className="text-sm text-white/70 mt-1">
+            Manage upcoming stays, track status, and review guest details.
+          </p>
         </div>
         {isPrivileged && (
           <Link
             href="/bookings/new"
-            className="h-10 inline-flex items-center rounded-md bg-blue-600 px-4 text-sm text-white"
+            className="inline-flex h-9 items-center rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 px-4 text-xs font-medium text-white shadow-sm"
           >
-            New Booking
+            + New booking
           </Link>
         )}
       </div>
 
       {created && (
-        <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
+        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200">
           Booking created successfully.
         </div>
       )}
 
+      {/* List */}
       {items.length === 0 ? (
-        <div className="text-white/70">No bookings found.</div>
+        <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-6 text-sm text-white/70">
+          No bookings found. Try adjusting filters or create a new booking.
+        </div>
       ) : (
         <div className="space-y-3">
           {items.map((b) => (
             <Link
               key={b.id}
               href={`/bookings/${b.id}`}
-              className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900/50 p-4 hover:border-white/20"
+              className="glass rounded-2xl border border-white/15 p-4 hover:border-cyan-400/60 hover:shadow-lg transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
             >
-              <div>
-                <div className="font-medium">{b.guest.name}</div>
-                <div className="text-sm text-white/70">
-                  {new Date(b.checkIn).toDateString()} → {new Date(b.checkOut).toDateString()}
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-white">
+                  {b.guest.name}
+                </div>
+                <div className="text-xs text-white/65">
+                  {new Date(b.checkIn).toDateString()} →{" "}
+                  {new Date(b.checkOut).toDateString()} • {b.guests} guest
+                  {b.guests > 1 ? "s" : ""}
+                </div>
+                <div className="text-xs text-white/55">
+                  Room: {b.room.title}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-white/90">{b.room.title}</div>
-                <div className="text-sm text-white/70">
-                  {b.status} · ₹{b.totalPrice}
+              <div className="flex flex-col items-end gap-2">
+                <StatusBadge status={b.status} />
+                <div className="text-sm font-semibold text-emerald-300">
+                  ₹{b.totalPrice.toLocaleString("en-IN")}
                 </div>
               </div>
             </Link>

@@ -25,16 +25,23 @@ export default function EditGuestPage() {
     let canceled = false;
     const load = async () => {
       setLoading(true);
-      const res = await fetch(`/api/guests/${id}`);
-      if (!res.ok) {
-        setError(`Failed to load guest: ${res.status} ${res.statusText}`);
-        setLoading(false);
-        return;
-      }
-      const data = (await res.json()) as Guest;
-      if (!canceled) {
-        setGuest(data);
-        setLoading(false);
+      try {
+        const res = await fetch(`/api/guests/${id}`);
+        if (!res.ok) {
+          setError(`Failed to load guest: ${res.status} ${res.statusText}`);
+          setLoading(false);
+          return;
+        }
+        const data = (await res.json()) as Guest;
+        if (!canceled) {
+          setGuest(data);
+          setLoading(false);
+        }
+      } catch (e: any) {
+        if (!canceled) {
+          setError(e.message ?? "Failed to load guest");
+          setLoading(false);
+        }
       }
     };
     load();
@@ -85,97 +92,126 @@ export default function EditGuestPage() {
   };
 
   if (loading) {
-    return <div className="p-6 text-white/70">Loading...</div>;
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-sm text-white/70">
+        Loading guest…
+      </div>
+    );
   }
 
   if (!guest) {
-    return <div className="p-6 text-red-300">Guest not found.</div>;
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-sm text-red-300">
+        Guest not found.
+      </div>
+    );
   }
 
+  const label =
+    "block text-xs font-medium mb-1 text-white/80 tracking-wide uppercase";
+  const input =
+    "w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-cyan-400/40";
+
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Edit Guest</h1>
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Edit guest</h1>
+          <p className="mt-1 text-sm text-white/70">
+            Update contact details and notes for this guest.
+          </p>
+        </div>
         <button
           onClick={remove}
           disabled={saving}
-          className="h-10 px-4 rounded-md bg-red-600 text-white text-sm disabled:opacity-50"
+          className="inline-flex items-center rounded-full border border-red-400/70 bg-red-500/10 px-5 py-2.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-60"
         >
-          {saving ? "Working..." : "Delete"}
+          {saving ? "Working…" : "Delete guest"}
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
+      <div className="glass rounded-3xl p-6 border border-white/15 space-y-5">
+        {error && (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200">
+            {error}
+          </div>
+        )}
 
-      <form onSubmit={save} className="space-y-4">
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Name</label>
-          <input
-            className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-            value={guest.name}
-            onChange={(e) => setGuest({ ...guest, name: e.target.value })}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={save} className="space-y-5">
           <div>
-            <label className="block text-sm text-white/80 mb-1">Email</label>
+            <label className={label}>Name</label>
             <input
-              className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-              value={guest.email || ""}
-              onChange={(e) => setGuest({ ...guest, email: e.target.value })}
-              type="email"
+              className={input}
+              value={guest.name}
+              onChange={(e) => setGuest({ ...guest, name: e.target.value })}
             />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={label}>Email</label>
+              <input
+                className={input}
+                value={guest.email || ""}
+                onChange={(e) =>
+                  setGuest({ ...guest, email: e.target.value })
+                }
+                type="email"
+              />
+            </div>
+            <div>
+              <label className={label}>Phone</label>
+              <input
+                className={input}
+                value={guest.phone || ""}
+                onChange={(e) =>
+                  setGuest({ ...guest, phone: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="block text-sm text-white/80 mb-1">Phone</label>
-            <input
-              className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-              value={guest.phone || ""}
-              onChange={(e) => setGuest({ ...guest, phone: e.target.value })}
+            <label className={label}>Address</label>
+            <textarea
+              className={`${input} min-h-24 py-2 resize-none`}
+              value={guest.address || ""}
+              onChange={(e) =>
+                setGuest({ ...guest, address: e.target.value })
+              }
             />
           </div>
-        </div>
 
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Address</label>
-          <textarea
-            className="w-full min-h-24 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
-            value={guest.address || ""}
-            onChange={(e) => setGuest({ ...guest, address: e.target.value })}
-          />
-        </div>
+          <div>
+            <label className={label}>Notes</label>
+            <textarea
+              className={`${input} min-h-24 py-2 resize-none`}
+              value={guest.notes || ""}
+              onChange={(e) =>
+                setGuest({ ...guest, notes: e.target.value })
+              }
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Notes</label>
-          <textarea
-            className="w-full min-h-24 rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white outline-none"
-            value={guest.notes || ""}
-            onChange={(e) => setGuest({ ...guest, notes: e.target.value })}
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-10 px-4 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button
-            type="button"
-            className="h-10 px-4 rounded-md border border-white/20 text-white text-sm"
-            onClick={() => history.back()}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+          <div className="flex flex-wrap gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-glow inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 px-6 py-2.5 text-sm font-medium text-white shadow-md disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-full border border-white/25 bg-transparent px-5 py-2.5 text-sm font-medium text-white/85 hover:bg-white/10"
+              onClick={() => router.back()}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

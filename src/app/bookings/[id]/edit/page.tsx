@@ -28,17 +28,28 @@ export default function EditBookingPage() {
 
   useEffect(() => {
     const load = async () => {
-      const [b, r] = await Promise.all([
-        fetch(`/api/bookings/${id}`).then((r) => r.json()),
-        fetch(`/api/rooms`).then((r) => r.json()),
-      ]);
-      setBooking(b);
-      setRooms(Array.isArray(r) ? r : r.items);
+      try {
+        const [bRes, rRes] = await Promise.all([
+          fetch(`/api/bookings/${id}`),
+          fetch(`/api/rooms`),
+        ]);
+        if (!bRes.ok) throw new Error("Failed to load booking");
+        const b = (await bRes.json()) as Booking;
+        const rJson = await rRes.json();
+        const rList: Room[] = Array.isArray(rJson) ? rJson : rJson.items ?? [];
+        setBooking(b);
+        setRooms(rList);
+      } catch (e: any) {
+        setError(e.message ?? "Failed to load");
+      }
     };
     load();
   }, [id]);
 
-  const selectedRoom = useMemo(() => rooms.find((x) => x.id === booking?.roomId), [rooms, booking?.roomId]);
+  const selectedRoom = useMemo(
+    () => rooms.find((x) => x.id === booking?.roomId),
+    [rooms, booking?.roomId]
+  );
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,94 +88,149 @@ export default function EditBookingPage() {
     router.refresh();
   };
 
-  if (!booking) return <div className="p-6 text-white/70">Loading...</div>;
+  if (!booking) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-sm text-white/70">
+        Loading booking…
+      </div>
+    );
+  }
+
+  const label =
+    "block text-xs font-medium mb-1 text-white/80 tracking-wide uppercase";
+  const input =
+    "w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-cyan-400/40";
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Edit Booking</h1>
-        <button onClick={remove} disabled={saving} className="h-10 px-4 rounded-md bg-red-600 text-white text-sm disabled:opacity-50">
-          {saving ? "Working..." : "Delete"}
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">Edit booking</h1>
+          <p className="mt-1 text-sm text-white/70">
+            Update status, dates, and room assignment.
+          </p>
+        </div>
+        <button
+          onClick={remove}
+          disabled={saving}
+          className="inline-flex items-center rounded-full border border-red-400/70 bg-red-500/10 px-5 py-2.5 text-xs font-medium text-red-200 hover:bg-red-500/20 disabled:opacity-60"
+        >
+          {saving ? "Working…" : "Cancel booking"}
         </button>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
+      <div className="glass rounded-3xl p-6 border border-white/15 space-y-5">
+        {error && (
+          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200">
+            {error}
+          </div>
+        )}
 
-      <form onSubmit={save} className="space-y-4">
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Status</label>
-          <select
-            className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-            value={booking.status}
-            onChange={(e) => setBooking({ ...booking, status: e.target.value })}
-          >
-            <option value="PENDING">PENDING</option>
-            <option value="CONFIRMED">CONFIRMED</option>
-            <option value="CHECKED_IN">CHECKED_IN</option>
-            <option value="CHECKED_OUT">CHECKED_OUT</option>
-            <option value="CANCELLED">CANCELLED</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Room</label>
-          <select
-            className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-            value={booking.roomId}
-            onChange={(e) => setBooking({ ...booking, roomId: e.target.value })}
-          >
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.title} (₹{r.price}/night, {r.capacity} pax)
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={save} className="space-y-5">
+          {/* Status */}
           <div>
-            <label className="block text-sm text-white/80 mb-1">Check-in</label>
+            <label className={label}>Status</label>
+            <select
+              className={input}
+              value={booking.status}
+              onChange={(e) =>
+                setBooking({ ...booking, status: e.target.value })
+              }
+            >
+              <option value="PENDING">PENDING</option>
+              <option value="CONFIRMED">CONFIRMED</option>
+              <option value="CHECKED_IN">CHECKED_IN</option>
+              <option value="CHECKED_OUT">CHECKED_OUT</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
+          </div>
+
+          {/* Room */}
+          <div>
+            <label className={label}>Room</label>
+            <select
+              className={input}
+              value={booking.roomId}
+              onChange={(e) =>
+                setBooking({ ...booking, roomId: e.target.value })
+              }
+            >
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title} (₹{r.price}/night, {r.capacity} pax)
+                </option>
+              ))}
+            </select>
+            {selectedRoom && (
+              <p className="mt-1 text-[11px] text-white/55">
+                Current: {selectedRoom.title} · ₹{selectedRoom.price}/night ·{" "}
+                {selectedRoom.capacity} pax
+              </p>
+            )}
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={label}>Check-in</label>
+              <input
+                type="date"
+                className={input}
+                value={booking.checkIn.substring(0, 10)}
+                onChange={(e) =>
+                  setBooking({ ...booking, checkIn: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <label className={label}>Check-out</label>
+              <input
+                type="date"
+                className={input}
+                value={booking.checkOut.substring(0, 10)}
+                onChange={(e) =>
+                  setBooking({ ...booking, checkOut: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          {/* Guests */}
+          <div>
+            <label className={label}>Guests</label>
             <input
-              type="date"
-              className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-              value={booking.checkIn.substring(0, 10)}
-              onChange={(e) => setBooking({ ...booking, checkIn: e.target.value })}
+              className={input}
+              value={booking.guests}
+              onChange={(e) =>
+                setBooking({
+                  ...booking,
+                  guests: Number(e.target.value) || 1,
+                })
+              }
+              inputMode="numeric"
             />
           </div>
-          <div>
-            <label className="block text-sm text-white/80 mb-1">Check-out</label>
-            <input
-              type="date"
-              className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-              value={booking.checkOut.substring(0, 10)}
-              onChange={(e) => setBooking({ ...booking, checkOut: e.target.value })}
-            />
+
+          {/* Actions */}
+          <div className="flex flex-wrap gap-3 pt-1">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-glow inline-flex items-center justify-center rounded-full bg-gradient-to-r from-indigo-500 via-sky-500 to-cyan-400 px-6 py-2.5 text-sm font-medium text-white shadow-md disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-full border border-white/25 bg-transparent px-5 py-2.5 text-sm font-medium text-white/85 hover:bg-white/10"
+              onClick={() => router.back()}
+            >
+              Cancel
+            </button>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm text-white/80 mb-1">Guests</label>
-          <input
-            className="w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white outline-none"
-            value={booking.guests}
-            onChange={(e) => setBooking({ ...booking, guests: Number(e.target.value) || 1 })}
-            inputMode="numeric"
-          />
-        </div>
-
-        <div className="flex gap-3">
-          <button type="submit" disabled={saving} className="h-10 px-4 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50">
-            {saving ? "Saving..." : "Save"}
-          </button>
-          <button type="button" className="h-10 px-4 rounded-md border border-white/20 text-white text-sm" onClick={() => history.back()}>
-            Cancel
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

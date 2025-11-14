@@ -4,150 +4,216 @@
 import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
-function Orb({ className = "" }: { className?: string }) {
-  // pointer-events-none prevents blocking clicks
+function Toast({ message }: { message: string }) {
+  if (!message) return null;
   return (
-    <div
-      className={`pointer-events-none absolute rounded-full blur-3xl opacity-30 ${className}`}
-      aria-hidden="true"
-    />
+    <div className="fixed inset-x-0 top-4 z-50 flex justify-center">
+      <div className="animate-[fade-in_0.2s_ease-out] rounded-full bg-black/80 px-4 py-2 text-sm text-white shadow-lg backdrop-blur">
+        {message}
+      </div>
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+    </div>
   );
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [show, setShow] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [toast, setToast] = useState("");
+
+  const redirectTarget = "/"; // or "/my/bookings"
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     start(async () => {
-      const res = await signIn("credentials", { email, password: pwd, redirect: false });
-      if (res?.error) return setErr(res.error);
-      window.location.href = "/admin/dashboard?welcome=1";
+      const res = await signIn("credentials", {
+        email,
+        password: pwd,
+        redirect: false,
+      });
+      if (res?.error) {
+        setErr(res.error);
+        return;
+      }
+      setToast("Logged in successfully");
+      setTimeout(() => {
+        router.push(redirectTarget);
+      }, 900);
     });
   };
 
+  const handleGoogleLogin = () => {
+    setToast("Signing you in with Google…");
+    setTimeout(() => {
+      signIn("google", { callbackUrl: redirectTarget });
+    }, 400);
+  };
+
   return (
-    <div className="relative min-h-[100svh] overflow-hidden">
-      {/* Animated gradient background */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_20%_0%,rgba(59,130,246,0.25)_0%,transparent_60%),radial-gradient(100%_80%_at_100%_100%,rgba(236,72,153,0.18)_0%,transparent_60%),radial-gradient(90%_70%_at_0%_100%,rgba(14,165,233,0.18)_0%,transparent_60%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'160\\' height=\\'160\\' viewBox=\\'0 0 160 160\\'><path d=\\'M0 0h160v160H0z\\' fill=\\'none\\'/><g fill=\\'%23ffffff10\\'><circle cx=\\'1\\' cy=\\'1\\' r=\\'1\\'/></g></svg>')] opacity-30" />
-      <div className="pointer-events-none absolute inset-0 backdrop-blur-[3px]" />
+    <div className="min-h-[100vh] flex items-center justify-center px-4">
+      <Toast message={toast} />
 
-      {/* Floating orbs */}
-      <Orb className="left-[-100px] top-[10%] h-72 w-72 bg-cyan-500" />
-      <Orb className="right-[-80px] top-[30%] h-64 w-64 bg-fuchsia-500" />
-      <Orb className="left-[20%] bottom-[-100px] h-80 w-80 bg-indigo-500" />
-
-      <div className="relative mx-auto max-w-6xl px-6 py-16 grid lg:grid-cols-2 gap-10 items-center">
-        {/* Hero copy */}
-        <div className="text-center lg:text-left">
-          <div className="inline-flex items-center justify-center lg:justify-start rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-            Welcome to HMS
-          </div>
-          <h1 className="mt-4 text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow">
-            Sign in with style
-          </h1>
-          <p className="mt-3 text-white/75 max-w-xl">
-            Access your hotel operations dashboard with enterprise-grade security and a world-class finish. You’ll love coming back here.
+      <div className="relative flex w-full max-w-5xl items-center gap-10 lg:gap-16">
+        {/* Left: welcome text about hotel */}
+        <div className="hidden md:block flex-1 text-white space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+            Welcome
           </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold leading-snug">
+            Sign in to{" "}
+            <span className="text-cyan-300">book your stay.</span>
+          </h1>
+          <p className="text-sm text-white/75 max-w-md">
+            Log in to reserve elegant rooms, manage upcoming stays, and keep
+            track of every detail of your visit.
+          </p>
+          <ul className="mt-2 text-xs text-white/70 space-y-1.5">
+            <li>• View and manage all your current and past bookings.</li>
+            <li>• Choose from deluxe, suite, and classic room categories.</li>
+            <li>• Enjoy a smooth check‑in experience when you arrive.</li>
+          </ul>
         </div>
 
-        {/* Glass card */}
-        <div className="relative">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 sm:p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.6)]">
-            {/* Big icon + heading */}
-            <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-cyan-500 to-indigo-500 text-white text-2xl">
-                🔐
-              </div>
-              <div>
-                <div className="text-xl font-semibold text-white">Login</div>
-                <div className="text-sm text-white/70">Choose your preferred method</div>
-              </div>
+        {/* Right: auth card */}
+        <div className="flex-1 flex justify-end">
+          <div className="w-full max-w-md rounded-3xl bg-slate-950/85 border border-white/12 shadow-[0_24px_70px_rgba(15,23,42,0.9)] backdrop-blur-xl px-6 py-8 sm:px-8 sm:py-9">
+            <div className="text-left">
+              <h2 className="text-2xl font-semibold text-white">
+                Welcome back
+              </h2>
+              <p className="mt-2 text-sm text-white/70">
+                Sign in to book rooms and manage your stays.
+              </p>
             </div>
 
-            {/* OAuth */}
-            <div className="mt-6 space-y-3">
-              <Button
-                type="button"
-                onClick={() => signIn("google", { callbackUrl: "/admin/dashboard?welcome=1" })}
-                className="w-full justify-center rounded-xl bg-white text-black hover:bg-white/90 h-11 text-sm font-medium"
-              >
-                <span className="text-lg mr-2">🟡</span> Continue with Google
-              </Button>
-            </div>
+            {/* Google */}
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white text-sm font-medium text-slate-900 shadow-sm hover:bg-slate-100"
+            >
+              <span className="text-base">G</span>
+              <span>Continue with Google</span>
+            </button>
 
-            <div className="my-6 flex items-center gap-3">
+            {/* Divider */}
+            <div className="my-5 flex items-center gap-3 text-[11px] text-white/40">
               <div className="h-px flex-1 bg-white/15" />
-              <span className="text-xs text-white/60">or sign in with email</span>
+              <span>OR SIGN IN WITH EMAIL</span>
               <div className="h-px flex-1 bg-white/15" />
             </div>
 
-            {/* Credentials */}
+            {/* Form */}
             <form onSubmit={onSubmit} className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email" className="text-white/85">Email</Label>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-white/85"
+                >
+                  Email address
+                </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-base">@</span>
-                  <Input
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/40 text-sm">
+                    @
+                  </span>
+                  <input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9 h-11 bg-white/10 border-white/15 text-white placeholder:text-white/40"
+                    className="w-full h-11 rounded-2xl border border-white/15 bg-white/5 pl-8 pr-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30"
                     placeholder="you@example.com"
                     required
                   />
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password" className="text-white/85">Password</Label>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-white/85"
+                >
+                  Password
+                </label>
                 <div className="relative">
-                  <Input
+                  <input
                     id="password"
                     type={show ? "text" : "password"}
                     value={pwd}
                     onChange={(e) => setPwd(e.target.value)}
-                    className="pr-24 h-11 bg-white/10 border-white/15 text-white placeholder:text-white/40"
-                    placeholder="••••••••"
+                    className="w-full h-11 rounded-2xl border border-white/15 bg-white/5 pl-3 pr-24 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30"
+                    placeholder="Enter your password"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShow((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-white/80 hover:text-white bg-white/10 border border-white/15 rounded-md px-2 py-1"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/20"
                   >
                     {show ? "Hide" : "Show"}
                   </button>
                 </div>
               </div>
 
-              {err && <p className="text-rose-300 text-sm">{err}</p>}
+              <div className="flex items-center justify-between text-xs text-white/70">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="h-4 w-4 rounded border-white/40 bg-transparent text-cyan-400 focus:ring-cyan-400/60"
+                  />
+                  <span>Remember me</span>
+                </label>
+                <button
+                  type="button"
+                  className="text-cyan-300 hover:text-cyan-200"
+                >
+                  Forgot password?
+                </button>
+              </div>
 
-              <Button
+              {err && (
+                <p className="text-xs text-rose-300">
+                  {err}
+                </p>
+              )}
+
+              <button
                 type="submit"
                 disabled={pending}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-600 via-sky-600 to-cyan-500 hover:opacity-95"
+                className="mt-1 w-full h-11 rounded-2xl bg-gradient-to-r from-indigo-600 via-sky-500 to-cyan-400 text-sm font-semibold text-white shadow-[0_18px_55px_rgba(59,130,246,0.7)] hover:opacity-95 disabled:opacity-60"
               >
-                {pending ? "Signing in…" : "Sign in"}
-              </Button>
+                {pending ? "Signing in…" : "Sign in securely"}
+              </button>
             </form>
 
-            <p className="mt-4 text-sm text-white/70 text-center">
-              New here?{" "}
-              <Link href="/register" className="text-cyan-300 hover:text-cyan-200 underline underline-offset-4">
-                Create an account
+            <div className="mt-5 text-center text-xs text-white/70">
+              <span>New to the hotel? </span>
+              <Link
+                href="/register"
+                className="font-medium text-cyan-300 hover:text-cyan-200"
+              >
+                Create an account to book
               </Link>
-            </p>
+            </div>
           </div>
         </div>
       </div>

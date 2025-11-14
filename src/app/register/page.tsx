@@ -3,31 +3,46 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
-function Orb({ className = "" }: { className?: string }) {
+function Toast({ message }: { message: string }) {
+  if (!message) return null;
   return (
-    <div
-      className={`pointer-events-none absolute rounded-full blur-3xl opacity-30 ${className}`}
-      aria-hidden="true"
-    />
+    <div className="fixed inset-x-0 top-4 z-50 flex justify-center">
+      <div className="animate-[fade-in_0.2s_ease-out] rounded-full bg-black/80 px-4 py-2 text-sm text-white shadow-lg backdrop-blur">
+        {message}
+      </div>
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+    </div>
   );
 }
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [toast, setToast] = useState("");
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
     setErr(null);
+
     start(async () => {
       try {
         const res = await fetch("/api/register", {
@@ -39,7 +54,11 @@ export default function RegisterPage() {
           const j = await res.json().catch(() => ({}));
           throw new Error(j?.error || "Failed to register");
         }
-        setMsg("Account created. You can sign in now.");
+        setMsg("Account created. Redirecting to login…");
+        setToast("Account created successfully");
+        setTimeout(() => {
+          router.push("/login");
+        }, 900);
       } catch (e: any) {
         setErr(e.message || "Something went wrong");
       }
@@ -47,101 +66,126 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative min-h-[100svh] overflow-hidden">
-      {/* Background layers */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_20%_0%,rgba(244,63,94,0.22)_0%,transparent_60%),radial-gradient(100%_80%_at_100%_100%,rgba(99,102,241,0.2)_0%,transparent_60%),radial-gradient(90%_70%_at_0%_100%,rgba(6,182,212,0.18)_0%,transparent_60%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'160\\' height=\\'160\\' viewBox=\\'0 0 160 160\\'><path d=\\'M0 0h160v160H0z\\' fill=\\'none\\'/><g fill=\\'%23ffffff10\\'><circle cx=\\'1\\' cy=\\'1\\' r=\\'1\\'/></g></svg>')] opacity-30" />
-      <div className="pointer-events-none absolute inset-0 backdrop-blur-[3px]" />
+    <div className="min-h-[100vh] flex items-center justify-center px-4">
+      <Toast message={toast} />
 
-      {/* Orbs */}
-      <Orb className="left-[-90px] top-[8%] h-72 w-72 bg-pink-500" />
-      <Orb className="right-[-80px] top-[32%] h-64 w-64 bg-indigo-500" />
-      <Orb className="left-[25%] bottom-[-100px] h-80 w-80 bg-cyan-500" />
-
-      <div className="relative mx-auto max-w-6xl px-6 py-16 grid lg:grid-cols-2 gap-10 items-center">
-        {/* Hero copy */}
-        <div className="text-center lg:text-left">
-          <div className="inline-flex items-center justify-center lg:justify-start rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/70">
-            Create your HMS account
-          </div>
-          <h1 className="mt-4 text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow">
-            Join the experience
-          </h1>
-          <p className="mt-3 text-white/75 max-w-xl">
-            Start managing rooms, bookings, and guests with a beautifully simple workflow.
+      <div className="relative flex w-full max-w-5xl items-center gap-10 lg:gap-16">
+        {/* Left: hotel-focused copy */}
+        <div className="hidden md:block flex-1 text-white space-y-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+            Start your stay
           </p>
+          <h1 className="text-3xl sm:text-4xl font-semibold leading-snug">
+            Create an account to{" "}
+            <span className="text-cyan-300">book your perfect room.</span>
+          </h1>
+          <p className="text-sm text-white/75 max-w-md">
+            Save your details once and enjoy faster bookings for every visit,
+            from business trips to weekend getaways.
+          </p>
+          <ul className="mt-2 text-xs text-white/70 space-y-1.5">
+            <li>• Reserve deluxe, suite, and classic rooms in a few taps.</li>
+            <li>• See all upcoming and past stays in one place.</li>
+            <li>• Make repeat bookings easier with stored guest info.</li>
+          </ul>
         </div>
 
-        {/* Glass card */}
-        <div className="relative">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.06] backdrop-blur-xl p-6 sm:p-8 shadow-[0_20px_80px_-20px_rgba(0,0,0,0.6)]">
-            {/* Big icon + heading */}
-            <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-pink-500 to-violet-500 text-white text-2xl">
-                ✨
-              </div>
-              <div>
-                <div className="text-xl font-semibold text-white">Create account</div>
-                <div className="text-sm text-white/70">It only takes a minute</div>
-              </div>
+        {/* Right: registration card */}
+        <div className="flex-1 flex justify-end">
+          <div className="w-full max-w-md rounded-3xl bg-slate-950/85 border border-white/12 shadow-[0_24px_70px_rgba(15,23,42,0.9)] backdrop-blur-xl px-6 py-8 sm:px-8 sm:py-9">
+            <div className="text-left">
+              <h2 className="text-2xl font-semibold text-white">
+                Create your account
+              </h2>
+              <p className="mt-2 text-sm text-white/70">
+                A few details and you are ready to start booking.
+              </p>
             </div>
 
             <form onSubmit={onSubmit} className="mt-6 space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name" className="text-white/85">Name</Label>
-                <Input
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="name"
+                  className="text-sm font-medium text-white/85"
+                >
+                  Full name
+                </label>
+                <input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="h-11 bg-white/10 border-white/15 text-white placeholder:text-white/40"
+                  className="w-full h-11 rounded-2xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30"
                   placeholder="Your name"
                   required
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email" className="text-white/85">Email</Label>
-                <Input
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-white/85"
+                >
+                  Email address
+                </label>
+                <input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="h-11 bg-white/10 border-white/15 text-white placeholder:text-white/40"
+                  className="w-full h-11 rounded-2xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30"
                   placeholder="you@example.com"
                   required
                 />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password" className="text-white/85">Password</Label>
-                <Input
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="password"
+                  className="text-sm font-medium text-white/85"
+                >
+                  Password
+                </label>
+                <input
                   id="password"
                   type="password"
                   value={pwd}
                   onChange={(e) => setPwd(e.target.value)}
-                  className="h-11 bg-white/10 border-white/15 text-white placeholder:text-white/40"
-                  placeholder="••••••••"
+                  className="w-full h-11 rounded-2xl border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/30"
+                  placeholder="Create a strong password"
                   required
                   minLength={6}
                 />
               </div>
 
-              {msg && <p className="text-emerald-300 text-sm">{msg}</p>}
-              {err && <p className="text-rose-300 text-sm">{err}</p>}
+              {msg && (
+                <p className="text-xs text-emerald-300">
+                  {msg}
+                </p>
+              )}
+              {err && (
+                <p className="text-xs text-rose-300">
+                  {err}
+                </p>
+              )}
 
-              <Button
+              <button
                 type="submit"
                 disabled={pending}
-                className="w-full h-11 rounded-xl bg-gradient-to-r from-pink-600 via-fuchsia-600 to-violet-500 hover:opacity-95"
+                className="mt-1 w-full h-11 rounded-2xl bg-gradient-to-r from-indigo-600 via-sky-500 to-cyan-400 text-sm font-semibold text-white shadow-[0_18px_55px_rgba(59,130,246,0.7)] hover:opacity-95 disabled:opacity-60"
               >
                 {pending ? "Creating…" : "Create account"}
-              </Button>
+              </button>
             </form>
 
-            <p className="mt-4 text-sm text-white/70 text-center">
-              Already have an account?{" "}
-              <Link href="/login" className="text-cyan-300 hover:text-cyan-200 underline underline-offset-4">
-                Sign in
+            <div className="mt-5 text-center text-xs text-white/70">
+              <span>Already have a booking profile? </span>
+              <Link
+                href="/login"
+                className="font-medium text-cyan-300 hover:text-cyan-200"
+              >
+                Sign in to continue
               </Link>
-            </p>
+            </div>
           </div>
         </div>
       </div>

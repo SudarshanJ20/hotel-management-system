@@ -1,17 +1,14 @@
-import Sidebar from "@/components/Sidebar";
+// app/admin/layout.tsx
+import type { ReactNode } from "react";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="relative min-h-[calc(100vh-4rem)]">
-      <div className="absolute inset-0 animate-gradient z-0" />
-      <div className="absolute inset-0 bg-black/55 z-0" />
-      <div className="absolute inset-0 bg-grid z-0" />
-      <div className="relative z-10">
-        <div className="mx-auto max-w-7xl px-6 py-6">
-          <div className="flex gap-6">
-            <Sidebar />
-            <div className="flex-1">{children}</div>
-          </div>
+      {/* Optional admin-specific background overlay */}
+      <div className="absolute inset-0 bg-black/40 z-0" />
+      <div className="relative z-10 w-full">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+          {children}
         </div>
       </div>
     </div>
