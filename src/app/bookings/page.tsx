@@ -10,8 +10,16 @@ type Booking = {
   checkOut: string;
   guests: number;
   totalPrice: number;
+  roomsCount?: number;
+  extraBed?: boolean;
+  mealPlan?: string;
   room: { id: string; title: string; price: number };
-  guest: { id: string; name: string; email: string | null; phone: string | null };
+  guest: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+  };
 };
 
 export const revalidate = 0;
@@ -111,33 +119,52 @@ export default async function BookingsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((b) => (
-            <Link
-              key={b.id}
-              href={`/bookings/${b.id}`}
-              className="glass rounded-2xl border border-white/15 p-4 hover:border-cyan-400/60 hover:shadow-lg transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-            >
-              <div className="space-y-1">
-                <div className="text-sm font-semibold text-white">
-                  {b.guest.name}
+          {items.map((b) => {
+            const extras: string[] = [];
+            if (b.roomsCount && b.roomsCount > 1) {
+              extras.push(`${b.roomsCount} rooms`);
+            }
+            if (b.extraBed) {
+              extras.push("Extra bed");
+            }
+            if (b.mealPlan && b.mealPlan !== "ROOM_ONLY") {
+              const label = b.mealPlan.replace(/_/g, " ").toLowerCase();
+              extras.push(label.charAt(0).toUpperCase() + label.slice(1));
+            }
+
+            return (
+              <Link
+                key={b.id}
+                href={`/bookings/${b.id}`}
+                className="glass rounded-2xl border border-white/15 p-4 hover:border-cyan-400/60 hover:shadow-lg transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold text-white">
+                    {b.guest.name}
+                  </div>
+                  <div className="text-xs text-white/65">
+                    {new Date(b.checkIn).toDateString()} →{" "}
+                    {new Date(b.checkOut).toDateString()} • {b.guests} guest
+                    {b.guests > 1 ? "s" : ""}
+                  </div>
+                  <div className="text-xs text-white/55">
+                    Room: {b.room.title}
+                  </div>
+                  {extras.length > 0 && (
+                    <div className="text-[11px] text-white/55">
+                      Extras: {extras.join(" • ")}
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs text-white/65">
-                  {new Date(b.checkIn).toDateString()} →{" "}
-                  {new Date(b.checkOut).toDateString()} • {b.guests} guest
-                  {b.guests > 1 ? "s" : ""}
+                <div className="flex flex-col items-end gap-2">
+                  <StatusBadge status={b.status} />
+                  <div className="text-sm font-semibold text-emerald-300">
+                    ₹{b.totalPrice.toLocaleString("en-IN")}
+                  </div>
                 </div>
-                <div className="text-xs text-white/55">
-                  Room: {b.room.title}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <StatusBadge status={b.status} />
-                <div className="text-sm font-semibold text-emerald-300">
-                  ₹{b.totalPrice.toLocaleString("en-IN")}
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

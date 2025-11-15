@@ -7,15 +7,12 @@ import { useSession } from "next-auth/react";
 
 export default function EditProfileForm({
   initialName,
-  initialImage,
   initialPhone,
 }: {
   initialName: string;
-  initialImage: string;
   initialPhone?: string;
 }) {
   const [name, setName] = useState(initialName);
-  const [image, setImage] = useState(initialImage);
   const [phone, setPhone] = useState(initialPhone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -37,7 +34,6 @@ export default function EditProfileForm({
       try {
         const payload: any = {
           name,
-          image,
           phone,
         };
 
@@ -60,7 +56,6 @@ export default function EditProfileForm({
 
         await update({
           name: updated?.name,
-          image: updated?.image,
           phone: updated?.phone,
         });
 
@@ -73,8 +68,6 @@ export default function EditProfileForm({
       }
     });
   };
-
-  const clearAvatar = () => setImage("");
 
   const label = "text-sm text-white/80";
   const input =
@@ -104,29 +97,6 @@ export default function EditProfileForm({
       </div>
 
       <div className="grid gap-2">
-        <label className={label}>Avatar URL</label>
-        <div className="flex gap-2">
-          <input
-            value={image}
-            onChange={(e) => setImage(e.target.value)}
-            className={`${input} flex-1`}
-            placeholder="https://..."
-          />
-          <button
-            type="button"
-            onClick={clearAvatar}
-            className="rounded-md px-3 py-2 text-xs bg-white/10 hover:bg-white/15"
-            title="Clear avatar (revert to initials)"
-          >
-            Clear
-          </button>
-        </div>
-        <p className="text-xs text-white/60">
-          Tip: Use your Google photo URL or a service like ui-avatars.
-        </p>
-      </div>
-
-      <div className="grid gap-2">
         <label className={label}>Phone</label>
         <input
           value={phone}
@@ -139,7 +109,9 @@ export default function EditProfileForm({
 
       {/* Password change (credentials accounts) */}
       <div className="grid gap-2">
-        <label className="text-sm font-semibold text-white/85">Change password</label>
+        <label className="text-sm font-semibold text-white/85">
+          Change password
+        </label>
         <p className="text-[11px] text-white/55">
           Not available for Google sign-in accounts.
         </p>
@@ -150,7 +122,7 @@ export default function EditProfileForm({
             placeholder="Current password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={pending}
+            disabled={pending || isGoogleUser}
           />
           <input
             type="password"
@@ -158,7 +130,7 @@ export default function EditProfileForm({
             placeholder="New password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            disabled={pending}
+            disabled={pending || isGoogleUser}
           />
         </div>
       </div>

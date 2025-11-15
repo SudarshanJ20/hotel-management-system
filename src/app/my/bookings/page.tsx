@@ -12,6 +12,9 @@ type BookingItem = {
   guests: number;
   totalPrice: number;
   status: string;
+  roomsCount?: number;
+  extraBed?: boolean;
+  mealPlan?: string;
   room?: {
     id: string;
     title: string;
@@ -25,18 +28,15 @@ function toDateLabel(v: string) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const base = "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium";
+  const base =
+    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium";
   const map: Record<string, string> = {
     CONFIRMED:
       "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30",
-    CANCELLED:
-      "bg-red-500/10 text-red-300 border border-red-500/30",
-    PENDING:
-      "bg-yellow-500/10 text-yellow-200 border border-yellow-500/30",
-    CHECKED_IN:
-      "bg-blue-500/10 text-blue-300 border border-blue-500/30",
-    CHECKED_OUT:
-      "bg-slate-500/10 text-slate-300 border border-slate-500/30",
+    CANCELLED: "bg-red-500/10 text-red-300 border border-red-500/30",
+    PENDING: "bg-yellow-500/10 text-yellow-200 border border-yellow-500/30",
+    CHECKED_IN: "bg-blue-500/10 text-blue-300 border border-blue-500/30",
+    CHECKED_OUT: "bg-slate-500/10 text-slate-300 border border-slate-500/30",
   };
   const cls =
     map[status] ??
@@ -103,9 +103,7 @@ export default function MyBookingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-white">
-            My bookings
-          </h1>
+          <h1 className="text-2xl font-semibold text-white">My bookings</h1>
           <p className="mt-1 text-sm text-white/60">
             View and manage all your upcoming and past stays.
           </p>
@@ -143,6 +141,18 @@ export default function MyBookingsPage() {
             const future = +ci > +now;
             const cancellable = future && b.status === "CONFIRMED";
 
+            const extras: string[] = [];
+            if (b.roomsCount && b.roomsCount > 1) {
+              extras.push(`${b.roomsCount} rooms`);
+            }
+            if (b.extraBed) {
+              extras.push("Extra bed");
+            }
+            if (b.mealPlan && b.mealPlan !== "ROOM_ONLY") {
+              const label = b.mealPlan.replace(/_/g, " ").toLowerCase();
+              extras.push(label.charAt(0).toUpperCase() + label.slice(1));
+            }
+
             return (
               <div
                 key={b.id}
@@ -173,6 +183,14 @@ export default function MyBookingsPage() {
                     <span className="text-white/50">Guests</span>
                     <span>{b.guests}</span>
                   </div>
+                  {extras.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/50">Extras</span>
+                      <span className="text-xs text-white/80 text-right">
+                        {extras.join(" • ")}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-white/50">Total</span>
                     <span className="font-semibold text-emerald-300">

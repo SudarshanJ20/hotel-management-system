@@ -1,7 +1,7 @@
 // app/manager/dashboard/page.tsx
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 
 export const revalidate = 0;
 
@@ -14,7 +14,11 @@ async function fetchJSON(url: string) {
 export default async function ManagerDashboardPage() {
   const session = await auth();
   const role = ((session?.user as any)?.role ?? "USER") as string;
-  if (!["ADMIN", "MANAGER"].includes(role)) redirect("/403");
+
+  // Allow only ADMIN or MANAGER
+  if (!["ADMIN", "MANAGER"].includes(role)) {
+    redirect("/403");
+  }
 
   const hdrs = await headers();
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
@@ -33,8 +37,13 @@ export default async function ManagerDashboardPage() {
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
 
-  const todayCheckIns = bookings.filter((b: any) => String(b.checkIn).slice(0,10) === todayStr).length;
-  const todayCheckOuts = bookings.filter((b: any) => String(b.checkOut).slice(0,10) === todayStr).length;
+  const todayCheckIns = bookings.filter(
+    (b: any) => String(b.checkIn).slice(0, 10) === todayStr
+  ).length;
+
+  const todayCheckOuts = bookings.filter(
+    (b: any) => String(b.checkOut).slice(0, 10) === todayStr
+  ).length;
 
   const occupiedNow = bookings.filter((b: any) => {
     const ci = new Date(b.checkIn);
@@ -42,7 +51,9 @@ export default async function ManagerDashboardPage() {
     return ci <= today && today < co;
   }).length;
 
-  const occupancyPct = rooms.length ? Math.round((occupiedNow / rooms.length) * 100) : 0;
+  const occupancyPct = rooms.length
+    ? Math.round((occupiedNow / rooms.length) * 100)
+    : 0;
 
   const month = today.getMonth();
   const year = today.getFullYear();
@@ -50,13 +61,19 @@ export default async function ManagerDashboardPage() {
     const ci = new Date(b.checkIn);
     return ci.getMonth() === month && ci.getFullYear() === year;
   });
-  const revenue = monthBookings.reduce((sum: number, b: any) => sum + (b.totalPrice || 0), 0);
+
+  const revenue = monthBookings.reduce(
+    (sum: number, b: any) => sum + (b.totalPrice || 0),
+    0
+  );
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Manager Dashboard</h1>
-        <p className="text-white/70 mt-1">Overview of operations today and this month.</p>
+        <p className="text-white/70 mt-1">
+          Overview of operations today and this month.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -69,10 +86,30 @@ export default async function ManagerDashboardPage() {
       <div className="rounded-xl border border-white/10 bg-slate-900/50 p-4">
         <div className="font-medium mb-2">Quick actions</div>
         <div className="flex gap-3 flex-wrap">
-          <a className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm" href="/bookings/new">New booking</a>
-          <a className="px-3 py-2 rounded-md border border-white/20 text-white text-sm" href="/guests/new">Add guest</a>
-          <a className="px-3 py-2 rounded-md border border-white/20 text-white text-sm" href="/rooms">Manage rooms</a>
-          <a className="px-3 py-2 rounded-md border border-white/20 text-white text-sm" href="/bookings">All bookings</a>
+          <a
+            className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm"
+            href="/bookings/new"
+          >
+            New booking
+          </a>
+          <a
+            className="px-3 py-2 rounded-md border border-white/20 text-white text-sm"
+            href="/guests/new"
+          >
+            Add guest
+          </a>
+          <a
+            className="px-3 py-2 rounded-md border border-white/20 text-white text-sm"
+            href="/rooms"
+          >
+            Manage rooms
+          </a>
+          <a
+            className="px-3 py-2 rounded-md border border-white/20 text-white text-sm"
+            href="/bookings"
+          >
+            All bookings
+          </a>
         </div>
       </div>
     </div>

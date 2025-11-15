@@ -13,6 +13,9 @@ type Booking = {
   checkOut: string;
   guests: number;
   totalPrice: number;
+  roomsCount?: number;
+  extraBed?: boolean;
+  mealPlan?: string;
 };
 
 type Room = { id: string; title: string; price: number; capacity: number };
@@ -36,8 +39,15 @@ export default function EditBookingPage() {
         if (!bRes.ok) throw new Error("Failed to load booking");
         const b = (await bRes.json()) as Booking;
         const rJson = await rRes.json();
-        const rList: Room[] = Array.isArray(rJson) ? rJson : rJson.items ?? [];
-        setBooking(b);
+        const rList: Room[] = Array.isArray(rJson)
+          ? rJson
+          : rJson.items ?? [];
+        setBooking({
+          ...b,
+          roomsCount: b.roomsCount ?? 1,
+          extraBed: b.extraBed ?? false,
+          mealPlan: b.mealPlan ?? "ROOM_ONLY",
+        });
         setRooms(rList);
       } catch (e: any) {
         setError(e.message ?? "Failed to load");
@@ -99,7 +109,24 @@ export default function EditBookingPage() {
   const label =
     "block text-xs font-medium mb-1 text-white/80 tracking-wide uppercase";
   const input =
-    "w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-cyan-400/40";
+    "w-full h-10 rounded-md border border-white/15 bg-slate-900/70 px-3 text-sm text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-cyan-400/40";
+
+  const changeGuests = (delta: number) =>
+    setBooking((prev) =>
+      prev
+        ? { ...prev, guests: Math.max(1, (prev.guests ?? 1) + delta) }
+        : prev
+    );
+
+  const changeRooms = (delta: number) =>
+    setBooking((prev) =>
+      prev
+        ? {
+            ...prev,
+            roomsCount: Math.max(1, (prev.roomsCount ?? 1) + delta),
+          }
+        : prev
+    );
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -108,7 +135,7 @@ export default function EditBookingPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Edit booking</h1>
           <p className="mt-1 text-sm text-white/70">
-            Update status, dates, and room assignment.
+            Update status, dates, room, and extras.
           </p>
         </div>
         <button
@@ -199,17 +226,85 @@ export default function EditBookingPage() {
           {/* Guests */}
           <div>
             <label className={label}>Guests</label>
-            <input
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="h-10 w-8 rounded-md border border-white/20 bg-white/5 text-white text-lg leading-none flex items-center justify-center hover:bg-white/10"
+                onClick={() => changeGuests(-1)}
+              >
+                −
+              </button>
+              <div className="flex-1 h-10 rounded-md border border-white/15 bg-slate-900/70 px-3 flex items-center justify-between text-sm text-white">
+                <span>{booking.guests ?? 1}</span>
+              </div>
+              <button
+                type="button"
+                className="h-10 w-8 rounded-md border border-white/20 bg-white/5 text-white text-lg leading-none flex items-center justify-center hover:bg-white/10"
+                onClick={() => changeGuests(1)}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Extras */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Rooms count */}
+            <div>
+              <label className={label}>Rooms count</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="h-10 w-8 rounded-md border border-white/20 bg-white/5 text-white text-lg leading-none flex items-center justify-center hover:bg-white/10"
+                  onClick={() => changeRooms(-1)}
+                >
+                  −
+                </button>
+                <div className="flex-1 h-10 rounded-md border border-white/15 bg-slate-900/70 px-3 flex items-center justify-between text-sm text-white">
+                  <span>{booking.roomsCount ?? 1}</span>
+                </div>
+                <button
+                  type="button"
+                  className="h-10 w-8 rounded-md border border-white/20 bg-white/5 text-white text-lg leading-none flex items-center justify-center hover:bg-white/10"
+                  onClick={() => changeRooms(1)}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Extra bed */}
+            <div className="flex items-center gap-2 mt-6">
+              <input
+                id="extraBed"
+                type="checkbox"
+                className="h-4 w-4 rounded border-white/30 bg-white/5"
+                checked={!!booking.extraBed}
+                onChange={(e) =>
+                  setBooking({ ...booking, extraBed: e.target.checked })
+                }
+              />
+              <label htmlFor="extraBed" className="text-xs text-white/80">
+                Extra bed
+              </label>
+            </div>
+          </div>
+
+          {/* Meal plan */}
+          <div>
+            <label className={label}>Meal plan</label>
+            <select
               className={input}
-              value={booking.guests}
+              value={booking.mealPlan ?? "ROOM_ONLY"}
               onChange={(e) =>
-                setBooking({
-                  ...booking,
-                  guests: Number(e.target.value) || 1,
-                })
+                setBooking({ ...booking, mealPlan: e.target.value })
               }
-              inputMode="numeric"
-            />
+            >
+              <option value="ROOM_ONLY">Room only</option>
+              <option value="BREAKFAST_INCLUDED">Breakfast included</option>
+              <option value="HALF_BOARD">Half board</option>
+              <option value="FULL_BOARD">Full board</option>
+            </select>
           </div>
 
           {/* Actions */}

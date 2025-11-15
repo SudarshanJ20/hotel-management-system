@@ -26,7 +26,7 @@ export default function Navbar() {
   const isSignedIn = !!user;
   const isRegularUser = isSignedIn && !canSeeStaff;
 
-  // --- Avatar logic: Google/custom image OR initials fallback ---
+  // Avatar logic
   const img = (user?.image as string | undefined) || "";
 
   const initials =
@@ -60,6 +60,9 @@ export default function Navbar() {
     ...(canSeeStaff ? [{ href: "/guests", label: "Guests" }] as const : []),
     ...(isAdmin
       ? [{ href: "/admin/dashboard", label: "Dashboard" }] as const
+      : []),
+    ...(isManager
+      ? [{ href: "/manager/dashboard", label: "Dashboard" }] as const
       : []),
     ...(isRegularUser
       ? [{ href: "/my/bookings", label: "My bookings" }] as const
@@ -172,7 +175,9 @@ export default function Navbar() {
                       className="absolute right-0 mt-2 w-52 rounded-xl border border-white/10 bg-slate-950/95 py-1 text-sm shadow-xl backdrop-blur-xl"
                     >
                       <div className="px-3 py-2 border-b border-white/5">
-                        <div className="text-xs text-white/40">Signed in as</div>
+                        <div className="text-xs text-white/40">
+                          Signed in as
+                        </div>
                         <div className="text-xs font-medium text-white/80 truncate">
                           {user.email}
                         </div>

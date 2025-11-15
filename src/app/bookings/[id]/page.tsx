@@ -61,6 +61,18 @@ export default async function BookingDetailsPage({
   const checkInDate = new Date(b.checkIn);
   const checkOutDate = new Date(b.checkOut);
 
+  const extras: string[] = [];
+  if (b.roomsCount && b.roomsCount > 1) {
+    extras.push(`${b.roomsCount} rooms`);
+  }
+  if (b.extraBed) {
+    extras.push("Extra bed");
+  }
+  if (b.mealPlan && b.mealPlan !== "ROOM_ONLY") {
+    const label = b.mealPlan.replace(/_/g, " ").toLowerCase();
+    extras.push(label.charAt(0).toUpperCase() + label.slice(1));
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -121,6 +133,10 @@ export default async function BookingDetailsPage({
             </div>
             <div className="text-xs text-white/65">
               Guests: {b.guests}
+            </div>
+            <div className="text-xs text-white/65">
+              Extras:{" "}
+              {extras.length > 0 ? extras.join(" • ") : "None"}
             </div>
             <div className="pt-2 text-sm">
               Total amount:{" "}
