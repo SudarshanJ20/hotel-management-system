@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import Link from "next/link";
 import OnceParamClear from "@/components/OnceParamClear";
 import AccountSummary from "@/components/dashboard/AccountSummary";
+import { prisma } from "@/lib/prisma";
+import { startOfDay, endOfDay, startOfMonth, subDays } from "date-fns";
 
 // Banner for one-time welcome via ?welcome=1
 function WelcomeBanner({ welcome }: { welcome: boolean }) {
@@ -58,11 +60,13 @@ function StatCard({
 function CheckItem({
   name,
   room,
+  date,
   time,
   type,
 }: {
   name: string;
   room: string;
+  date: string;
   time: string;
   type: "in" | "out";
 }) {
@@ -73,6 +77,7 @@ function CheckItem({
         <div className="text-xs text-white/70 mt-0.5">
           {type === "in" ? "Check-in" : "Check-out"} • {room}
         </div>
+        <div className="text-[11px] text-white/60 mt-0.5">{date}</div>
       </div>
       <div className="text-sm text-white/70">{time}</div>
     </div>
@@ -115,22 +120,155 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
   const role = (session?.user as any)?.role ?? "USER";
   const missingProfile = !session?.user?.name || !session?.user?.image;
 
-  // Example arrays to enable empty-state logic
-  const upcomingCheckIns: Array<{ name: string; room: string; time: string }> =
-    [
-      { name: "Ananya Rao", room: "Room 302", time: "11:00 AM" },
-      { name: "Vikram Shah", room: "Room 415", time: "12:30 PM" },
-      { name: "Meera N.", room: "Room 221", time: "1:15 PM" },
-    ];
-  const upcomingCheckOuts: Array<{
-    name: string;
-    room: string;
-    time: string;
-  }> = [
-    { name: "Rahul S.", room: "Room 518", time: "10:00 AM" },
-    { name: "Neha K.", room: "Room 207", time: "10:30 PM" },
-    { name: "Arjun P.", room: "Room 116", time: "11:00 AM" },
-  ];
+  // --- Real metrics ---
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+
+  // Total rooms
+  const totalRooms = await prisma.room.count();
+
+  // Booked rooms overlapping today (confirmed or checked-in)
+  const activeBookings = await prisma.booking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      checkIn: { lte: todayEnd },
+      checkOut: { gt: todayStart }, // stays that include today
+    },
+    select: { roomId: true },
+  });
+
+  const bookedRoomIds = Array.from(new Set(activeBookings.map((b) => b.roomId)));
+  const bookedRoomsCount = bookedRoomIds.length;
+
+  const occupancy =
+    totalRooms > 0 ? Math.round((bookedRoomsCount / totalRooms) * 100) : 0;
+
+  // Guests today: arrivals today + in-house
+  const arrivalsToday = await prisma.booking.count({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      checkIn: { gte: todayStart, lte: todayEnd },
+    },
+  });
+
+  const inHouseToday = await prisma.booking.count({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      checkIn: { lt: todayStart },
+      checkOut: { gt: todayStart },
+    },
+  });
+
+  const guestsToday = arrivalsToday + inHouseToday;
+
+  // Revenue this month (est.)
+  const monthStart = startOfMonth(today);
+  const revenueThisMonthAgg = await prisma.booking.aggregate({
+    _sum: {
+      totalPrice: true,
+    },
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      createdAt: { gte: monthStart, lte: todayEnd },
+    },
+  });
+  const revenueThisMonth = revenueThisMonthAgg._sum.totalPrice ?? 0;
+
+  const formatINR = (value: number) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  // --- Occupancy trend: last 7 days ---
+  const days: { label: string; occupancy: number }[] = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const day = subDays(today, i);
+    const dayStart = startOfDay(day);
+    const dayEnd = endOfDay(day);
+
+    const dayActiveBookings = await prisma.booking.findMany({
+      where: {
+        status: { in: ["CONFIRMED", "CHECKED_IN"] },
+        checkIn: { lte: dayEnd },
+        checkOut: { gt: dayStart },
+      },
+      select: { roomId: true },
+    });
+
+    const dayBookedRoomIds = Array.from(
+      new Set(dayActiveBookings.map((b) => b.roomId))
+    );
+    const dayBookedRoomsCount = dayBookedRoomIds.length;
+
+    const dayOccupancy =
+      totalRooms > 0
+        ? Math.round((dayBookedRoomsCount / totalRooms) * 100)
+        : 0;
+
+    const label = new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+    }).format(day);
+
+    days.push({ label, occupancy: dayOccupancy });
+  }
+
+  // Upcoming check-ins & check-outs
+  const upcomingCheckInsRaw = await prisma.booking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      checkIn: { gte: todayStart },
+    },
+    orderBy: { checkIn: "asc" },
+    take: 3,
+    include: {
+      guest: true,
+      room: true,
+    },
+  });
+
+  const upcomingCheckOutsRaw = await prisma.booking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "CHECKED_IN"] },
+      checkOut: { gte: todayStart },
+    },
+    orderBy: { checkOut: "asc" },
+    take: 3,
+    include: {
+      guest: true,
+      room: true,
+    },
+  });
+
+  const formatDate = (date: Date) =>
+    new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+
+  const CHECK_IN_TIME = "11:00 am";
+  const CHECK_OUT_TIME = "10:00 pm";
+
+  const upcomingCheckIns = upcomingCheckInsRaw.map((b) => ({
+    id: b.id,
+    name: b.guest.name,
+    room: b.room.title,
+    date: formatDate(b.checkIn),
+    time: CHECK_IN_TIME,
+  }));
+
+  const upcomingCheckOuts = upcomingCheckOutsRaw.map((b) => ({
+    id: b.id,
+    name: b.guest.name,
+    room: b.room.title,
+    date: formatDate(b.checkOut),
+    time: CHECK_OUT_TIME,
+  }));
 
   return (
     <div className="space-y-6">
@@ -183,22 +321,33 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {/* Account summary card (replaces raw JSON) */}
+      {/* Account summary */}
       <AccountSummary user={session?.user as any} />
 
       {/* Stats */}
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
-          label="Total Rooms"
-          value="120"
-          hint="20 suites, 100 standard"
+          label="Total rooms"
+          value={String(totalRooms)}
         />
-        <StatCard label="Booked" value="84" hint="70% occupancy" />
-        <StatCard label="Guests Today" value="156" hint="Arrivals + in-house" />
-        <StatCard label="Revenue (est.)" value="₹4.2L" hint="Incl. taxes" />
+        <StatCard
+          label="Booked"
+          value={String(bookedRoomsCount)}
+          hint={`${occupancy}% occupancy`}
+        />
+        <StatCard
+          label="Guests today"
+          value={String(guestsToday)}
+          hint="Arrivals + in-house"
+        />
+        <StatCard
+          label="Revenue (est.)"
+          value={formatINR(revenueThisMonth)}
+          hint="This month · confirmed + in-house"
+        />
       </section>
 
-      {/* Quick actions (role-aware) */}
+      {/* Quick actions */}
       <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 flex flex-wrap gap-3">
         <Link
           href="/admin/bookings/new"
@@ -235,29 +384,50 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
         </Link>
       </section>
 
-      {/* Chart placeholder with empty-state CTA */}
+      {/* Occupancy trend (last 7 days) */}
       <section className="rounded-2xl border border-white/10 bg-slate-950/60 p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div className="text-sm font-medium text-white/90">
             Occupancy trend (last 7 days)
           </div>
           <span className="text-[11px] uppercase tracking-wide text-white/40">
-            Coming soon
+            Rooms occupied per day
           </span>
         </div>
-        <div className="mt-4 h-52 rounded-xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center text-white/60 gap-2">
-          <div>No data yet.</div>
-          <Link
-            href="/admin/bookings/new"
-            aria-label="Create a booking to see trends"
-            className="text-xs font-medium underline underline-offset-2 hover:text-white/80"
-          >
-            Create a booking to see trends
-          </Link>
-        </div>
+
+        {days.length === 0 ? (
+          <div className="h-40 rounded-xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center text-white/60 gap-2">
+            <div>No data yet.</div>
+            <Link
+              href="/admin/bookings/new"
+              aria-label="Create a booking to see trends"
+              className="text-xs font-medium underline underline-offset-2 hover:text-white/80"
+            >
+              Create a booking to see trends
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {days.map((d) => (
+              <div
+                key={d.label}
+                className="flex items-center gap-3 text-xs text-white/70"
+              >
+                <span className="w-14">{d.label}</span>
+                <div className="flex-1 h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500"
+                    style={{ width: `${d.occupancy}%` }}
+                  />
+                </div>
+                <span className="w-10 text-right">{d.occupancy}%</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Upcoming check-ins/outs with empty states */}
+      {/* Upcoming check-ins/outs */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -278,16 +448,17 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
             <>
               {upcomingCheckIns.map((x) => (
                 <CheckItem
-                  key={`${x.name}-${x.room}-${x.time}`}
+                  key={x.id}
                   name={x.name}
                   room={x.room}
+                  date={x.date}
                   time={x.time}
                   type="in"
                 />
               ))}
               <div className="text-right">
                 <Link
-                  href="/admin/bookings"
+                  href="/bookings"
                   className="text-xs font-medium text-white/70 hover:text-white"
                   aria-label="View all bookings"
                 >
@@ -297,6 +468,7 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
             </>
           )}
         </div>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">
@@ -316,16 +488,17 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
             <>
               {upcomingCheckOuts.map((x) => (
                 <CheckItem
-                  key={`${x.name}-${x.room}-${x.time}`}
+                  key={x.id}
                   name={x.name}
                   room={x.room}
+                  date={x.date}
                   time={x.time}
                   type="out"
                 />
               ))}
               <div className="text-right">
                 <Link
-                  href="/admin/bookings"
+                  href="/bookings"
                   className="text-xs font-medium text-white/70 hover:text-white"
                   aria-label="View all bookings"
                 >

@@ -12,15 +12,11 @@ export default async function ProfilePage() {
   const name = (user?.name as string) ?? "";
   const email = (user?.email as string) ?? "";
   const image = (user?.image as string) ?? "";
+  const phone = (user?.phone as string) ?? ""; // may not be in session, but form will fetch/hold
 
-  // Fallback avatar: use local image or initials
   const initials =
-    name
-      ?.trim()
-      .split(" ")
-      .map((n: string) => n[0])
-      .join("")
-      .toUpperCase() || (email ? email[0].toUpperCase() : "U");
+    name?.trim().split(" ").map((n: string) => n[0]).join("").toUpperCase() ||
+    (email ? email[0].toUpperCase() : "U");
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -33,7 +29,6 @@ export default async function ProfilePage() {
         <div className="flex items-center gap-4">
           <div className="h-16 w-16 rounded-full overflow-hidden bg-slate-800 border border-white/15">
             {image ? (
-              // Google / custom avatar
               <Image
                 src={image}
                 alt="avatar"
@@ -42,18 +37,9 @@ export default async function ProfilePage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              // Default avatar (no Google image)
               <div className="h-full w-full grid place-items-center bg-gradient-to-br from-cyan-500/70 via-sky-500/70 to-indigo-500/70 text-white text-lg font-semibold">
                 {initials.slice(0, 2)}
               </div>
-              // If you prefer a static picture instead of initials, replace the div above with:
-              // <Image
-              //   src="/default-avatar.png"
-              //   alt="default avatar"
-              //   width={64}
-              //   height={64}
-              //   className="h-full w-full object-cover"
-              // />
             )}
           </div>
           <div>
@@ -64,7 +50,14 @@ export default async function ProfilePage() {
           </div>
         </div>
 
-        <EditProfileForm initialName={name} initialImage={image} />
+        <EditProfileForm
+          initialName={name}
+          initialImage={image}
+          initialPhone={phone}
+          // Hint the form whether password section should show:
+          // if the session has 'password' we’d know, but usually it doesn’t.
+          // The form can probe via a small HEAD call, or simply always show and the API will validate.
+        />
       </div>
     </div>
   );
