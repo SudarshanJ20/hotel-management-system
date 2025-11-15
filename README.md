@@ -1,71 +1,141 @@
-# Hotel Management System Frontend
+<div align="center">
 
-Modern hotel booking interface built with **Next.js 14 (App Router)**, **TypeScript**, **TailwindCSS**, and **shadcn/ui**. The app connects to a backend at `http://localhost:5000/api` to manage hotels, bookings, and authentication via JWT stored in HTTP-only cookies.
+# Hotel Management System
 
-## Features
+Modern, neon-inspired hotel booking experience built with the Next.js App Router, shadcn/ui components, and a Prisma + NextAuth backend.
 
-- App Router layout with shared `Navbar` and `Footer`
-- Home page search with server-side hotel fetching
-- Hotel detail view with amenities and responsive booking form
-- Bookings dashboard for logged-in guests
-- Authentication pages (login/register) wired to backend endpoints
-- Admin dashboard cards with booking, revenue, and occupancy stats
-- Reusable UI components using shadcn patterns, lucide icons, framer-motion animations, and Tailwind styling
-- Axios API layer with typed responses and example GET/POST calls
-- Shared TypeScript types in `src/lib/types.ts`
+</div>
 
-## Getting Started
+## 🧭 Overview
+
+This project delivers a production-ready front end for hotel discovery, booking, and administration. It ships with:
+
+- **Next.js 14 App Router** + TypeScript for routing, server components, and server actions.
+- **TailwindCSS + shadcn/ui** for a cohesive, futuristic UI (lucide icons, framer-motion micro interactions).
+- **NextAuth.js (Google + Credentials)** wired to a **Prisma/PostgreSQL** database for sessions, OAuth, and password logins.
+- Modular API helpers (`src/lib/api.ts`) and server actions for talking to external microservices.
+
+## ✨ Feature Highlights
+
+- Hero home page with search, featured hotels, and animated cards
+- Dynamic hotel details with amenities, gallery, and booking form
+- Auth suite: login, register, and Google OAuth with polished UI states
+- User dashboard for bookings plus admin dashboard metrics
+- Shared primitive library (Button, Card, Input, Skeleton, etc.) via shadcn/ui
+- Prisma schema aligned with NextAuth (User, Account, Session, VerificationToken)
+- Central Prisma client singleton and adapter
+
+## 🧰 Tech Stack
+
+| Layer      | Tech |
+|------------|------|
+| Framework  | Next.js 14 / TypeScript |
+| Styling    | TailwindCSS, shadcn/ui, framer-motion, lucide-react |
+| Auth       | NextAuth.js (Google + Credentials) |
+| Data       | Prisma ORM, PostgreSQL |
+| Tooling    | ESLint, Prettier, pnpm/npm scripts |
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- PostgreSQL 14+ running locally (or a connection string)
+
+### 1. Install dependencies
 
 ```powershell
 npm install
+```
+
+### 2. Configure environment
+
+Copy `.env.example` (or use `.env`) and update the values:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string used by Prisma |
+| `NEXTAUTH_URL` | Base URL for the Next.js app (e.g., `http://localhost:3000`) |
+| `NEXTAUTH_SECRET` | Secret for NextAuth JWT/session encryption |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | OAuth credentials from Google Cloud |
+
+### 3. Generate Prisma client & run migrations
+
+```powershell
+npx prisma generate
+npx prisma migrate deploy
+```
+
+You can inspect the schema in `prisma/schema.prisma` and existing migrations under `prisma/migrations`.
+
+### 4. Start the dev server
+
+```powershell
 npm run dev
 ```
 
-The development server runs on [http://localhost:3000](http://localhost:3000). Create a `.env.local` if you need to override `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:5000/api`).
+Visit [http://localhost:3000](http://localhost:3000). The dev server prints the actual URL if you change the port.
 
-## Project Structure
+## 📁 Project Structure (partial)
 
 ```
+prisma/
+  schema.prisma            # NextAuth + domain models
+  migrations/              # Versioned SQL migrations
 src/
   app/
-    (auth)/       # Login & register routes
-    admin/        # Admin dashboard
-    bookings/     # User bookings page
-    hotels/       # Dynamic hotel detail routes
-    globals.css   # Tailwind layers & design tokens
-    layout.tsx    # Root layout with Navbar/Footer
-    page.tsx      # Home page (hotel grid + search)
+    (auth)/                # Login + register routes & server actions
+    api/auth/[...nextauth] # NextAuth route handler
+    admin/                 # Admin dashboard
+    bookings/              # User bookings dashboard
+    layout.tsx             # Root layout (Navbar + Footer)
+    page.tsx               # Landing page
   components/
-    ui/           # shadcn-style primitives (Button, Card, etc.)
-    Navbar.tsx    # Sticky navigation bar
-    Footer.tsx    # Global footer
-    HotelCard.tsx # Hotel cards with motion animations
-    BookingForm.tsx
-    AuthForm.tsx
-    DateRangePicker.tsx
+    ui/                    # shadcn primitives (Button, Card, Input, etc.)
+    AuthForm.tsx           # Credential + Google auth UI
+    BookingForm.tsx, HotelCard.tsx, etc.
   lib/
-    api.ts        # Axios instance and example API helpers
-    auth.ts       # Session helpers (cookies + /auth/me)
-    types.ts      # Shared domain types
-    utils.ts      # Tailwind class utilities
+    prisma.ts              # Prisma client singleton
+    api.ts                 # Axios instance + helpers
+    auth.ts                # Client session utilities
+    types.ts               # Shared domain types
 ```
 
-## Backend Integration Notes
+## 🔐 Authentication Notes
 
-- Axios is configured with `withCredentials: true`, allowing the API to issue HTTP-only cookies for JWT tokens.
-- The optional server actions in `src/app/(auth)/actions.ts` demonstrate how to set the cookie manually if your backend returns the raw token in the response body.
-- Update the `AUTH_COOKIE` constant if your backend uses a different cookie name.
+- NextAuth handles Google and credentials login at `src/app/api/auth/[...nextauth]/route.ts`.
+- Credentials provider expects hashed passwords stored on the `User` model.
+- Google sign-ins populate `Account` + `Session` tables automatically via the Prisma adapter.
+- Client-side flows can call `signIn("google")` or `signIn("credentials")`, while server routes can read sessions via `auth()`.
 
-## UI/UX
+## 💾 Database & Prisma Tips
 
-- Tailwind theme extends pastel color palette with soft shadows and rounded cards.
-- Components leverage shadcn/ui patterns for consistency, with lucide-react icons and framer-motion animations for interaction polish.
-- `DateRangePicker` wraps `react-day-picker` for intuitive booking date selection.
+- Prisma config (`prisma.config.ts`) loads `.env`, so CLI commands pick up `DATABASE_URL` automatically.
+- Regenerate the client after altering `schema.prisma`:
 
-## Next Steps
+```powershell
+npx prisma generate
+```
 
-- Gate `/bookings` and `/admin/dashboard` with middleware or server-side session checks.
-- Replace placeholder images with actual hotel media.
-- Expand admin analytics (charts, recent bookings) and add mutation flows for room management.
-- Wire up logout flow and profile menu in the navbar.
-# hotel-management-system
+- Use `npx prisma studio` for a quick dataset browser.
+
+## 🧑‍💻 Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Next.js in development mode |
+| `npm run build` | Create an optimized production build |
+| `npm start` | Run the production server after building |
+| `npm run lint` | Lint the codebase with ESLint |
+
+## 🧠 Roadmap Ideas
+
+- Middleware-based route protection (bookings/admin)
+- Profile dropdown with sign-out + avatar
+- Rich admin analytics (charts, room management CRUD)
+- Real payment integration and booking confirmations
+- E2E coverage (Playwright/Cypress) for key flows
+
+---
+
+Questions or ideas? Open an issue or start a discussion — contributions are welcome!
