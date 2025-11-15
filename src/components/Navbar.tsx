@@ -18,7 +18,7 @@ export default function Navbar() {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const user = session?.user as any | undefined;
-  const name = user?.name || user?.email || "Account";
+  const name = (user?.name as string) || (user?.email as string) || "Account";
   const role = (user?.role as string) || "USER";
   const isAdmin = role === "ADMIN";
   const isManager = role === "MANAGER";
@@ -26,9 +26,18 @@ export default function Navbar() {
   const isSignedIn = !!user;
   const isRegularUser = isSignedIn && !canSeeStaff;
 
-  const avatar =
-    user?.image ||
-    "https://ui-avatars.com/api/?name=U&background=0D8ABC&color=fff";
+  // --- Avatar logic: Google/custom image OR initials fallback ---
+  const img = (user?.image as string | undefined) || "";
+
+  const initials =
+    (name &&
+      name
+        .trim()
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()) ||
+    (user?.email ? String(user.email)[0].toUpperCase() : "U");
 
   useEffect(() => {
     setOpen(false);
@@ -138,13 +147,23 @@ export default function Navbar() {
                     <span className="hidden md:block text-sm font-medium text-white/90 max-w-[140px] truncate">
                       {name}
                     </span>
-                    <Image
-                      src={avatar}
-                      alt="avatar"
-                      width={32}
-                      height={32}
-                      className="rounded-full bg-white/10"
-                    />
+
+                    {/* Avatar: image or initials */}
+                    <div className="h-8 w-8 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
+                      {img ? (
+                        <Image
+                          src={img}
+                          alt="avatar"
+                          width={32}
+                          height={32}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-white">
+                          {initials.slice(0, 2)}
+                        </span>
+                      )}
+                    </div>
                   </button>
 
                   {open && (
@@ -153,9 +172,7 @@ export default function Navbar() {
                       className="absolute right-0 mt-2 w-52 rounded-xl border border-white/10 bg-slate-950/95 py-1 text-sm shadow-xl backdrop-blur-xl"
                     >
                       <div className="px-3 py-2 border-b border-white/5">
-                        <div className="text-xs text-white/40">
-                          Signed in as
-                        </div>
+                        <div className="text-xs text-white/40">Signed in as</div>
                         <div className="text-xs font-medium text-white/80 truncate">
                           {user.email}
                         </div>
@@ -250,13 +267,21 @@ export default function Navbar() {
 
                 {user && (
                   <div className="flex items-center gap-2">
-                    <Image
-                      src={avatar}
-                      alt="avatar"
-                      width={32}
-                      height={32}
-                      className="rounded-full bg-white/10"
-                    />
+                    <div className="h-8 w-8 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
+                      {img ? (
+                        <Image
+                          src={img}
+                          alt="avatar"
+                          width={32}
+                          height={32}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-white">
+                          {initials.slice(0, 2)}
+                        </span>
+                      )}
+                    </div>
                     <button
                       onClick={async () => {
                         setMobileOpen(false);

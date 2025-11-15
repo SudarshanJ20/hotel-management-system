@@ -3,6 +3,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function EditProfileForm({
   initialName,
@@ -17,22 +18,45 @@ export default function EditProfileForm({
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const { update } = useSession();
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
     setErr(null);
+
     start(async () => {
       try {
+        const trimmedName = name.trim();
+        const trimmedImage = image.trim();
+
+        if (!trimmedName && !trimmedImage) {
+          setErr("Nothing to update.");
+          return;
+        }
+
         const res = await fetch("/api/profile", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, image }),
+          body: JSON.stringify({
+            name: trimmedName || undefined,
+            image: trimmedImage || undefined,
+          }),
         });
+
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j?.error || "Failed to update profile");
         }
+
+        const updated = await res.json().catch(() => null);
+
+        // Refresh NextAuth session so Navbar sees new name/image
+        await update({
+          name: updated?.name,
+          image: updated?.image,
+        });
+
         setMsg("Profile updated");
         router.refresh();
       } catch (e: any) {
@@ -52,6 +76,7 @@ export default function EditProfileForm({
           placeholder="Your name"
         />
       </div>
+
       <div className="grid gap-2">
         <label className="text-sm text-white/80">Avatar URL</label>
         <input

@@ -104,22 +104,27 @@ model Guest {
 }
 
 model Booking {
-  id         String   @id @default(cuid())
+  id         String         @id @default(cuid())
   roomId     String
   guestId    String
-  userId     String?  // optional: which app user created it
+  userId     String?        // optional: which app user created it
   checkIn    DateTime
   checkOut   DateTime
   guests     Int
-  status     BookingStatus @default(PENDING)
+  status     BookingStatus  @default(PENDING)
   totalPrice Int
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  // NEW FIELDS
+  roomsCount Int            @default(1)      // number of rooms needed
+  extraBed   Boolean        @default(false)  // extra bed required
+  mealPlan   MealPlan       @default(ROOM_ONLY)
 
-  room       Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  guest      Guest  @relation(fields: [guestId], references: [id], onDelete: Cascade)
-  user       User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  room       Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  guest      Guest          @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  user       User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([roomId])
   @@index([guestId])
@@ -132,4 +137,11 @@ enum BookingStatus {
   CHECKED_IN
   CHECKED_OUT
   CANCELLED
+}
+
+enum MealPlan {
+  ROOM_ONLY
+  BREAKFAST_INCLUDED
+  HALF_BOARD
+  FULL_BOARD
 }

@@ -65,8 +65,8 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // Attach role to JWT (priority: ADMIN > MANAGER > DB role > USER)
-    async jwt({ token, user }) {
+    // Attach role + basic user info to JWT
+    async jwt({ token, user, trigger }) {
       let userId = (user as any)?.id ?? token.sub;
 
       // First-time OAuth: get id by email
@@ -78,16 +78,21 @@ export const authOptions: NextAuthOptions = {
         if (byEmail) userId = String(byEmail.id);
       }
 
-      // Load DB role if id exists
+      // Load DB role + latest name/image if id exists
+      // Always refresh from DB on "update" trigger (when profile changes)
       if (userId) {
         const dbUser = await prisma.user.findUnique({
           where: { id: String(userId) },
-          select: { id: true, role: true, email: true },
+          select: { id: true, role: true, email: true, name: true, image: true },
         });
 
         if (dbUser) {
           (token as any).sub = String(dbUser.id);
           const email = dbUser.email ?? (token.email as string | undefined);
+
+          // Always keep latest name/image from DB on the token
+          token.name = dbUser.name ?? token.name;
+          token.picture = dbUser.image ?? (token.picture as string | undefined);
 
           if (email && ADMIN_EMAILS.has(email)) {
             (token as any).role = "ADMIN";
@@ -110,11 +115,15 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
-    // Mirror role into session
+    // Mirror id, role, name, image into session
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any)?.sub;
         (session.user as any).role = (token as any)?.role ?? "USER";
+
+        // KEY FIX: copy name and image from token into session.user
+        session.user.name = token.name as string | undefined;
+        session.user.image = (token as any).picture as string | undefined;
       }
       return session;
     },

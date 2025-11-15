@@ -8,6 +8,8 @@ import { useSession } from "next-auth/react";
 type Guest = { id: string; name: string; email: string | null; phone: string | null };
 type Room = { id: string; title: string; price: number; capacity: number };
 
+type MealPlan = "ROOM_ONLY" | "BREAKFAST_INCLUDED" | "HALF_BOARD" | "FULL_BOARD";
+
 export default function NewBookingPage() {
   const router = useRouter();
   const search = useSearchParams();
@@ -21,7 +23,13 @@ export default function NewBookingPage() {
   const [roomId, setRoomId] = useState("");
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
-  const [count, setCount] = useState("1");
+  const [guestCount, setGuestCount] = useState("1");
+
+  // NEW STATE
+  const [roomsCount, setRoomsCount] = useState("1");
+  const [extraBed, setExtraBed] = useState(false);
+  const [mealPlan, setMealPlan] = useState<MealPlan>("ROOM_ONLY");
+
   const [error, setError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
 
@@ -79,10 +87,39 @@ export default function NewBookingPage() {
     return Math.max(0, d);
   }, [checkIn, checkOut]);
 
+  const parsedRoomsCount = useMemo(() => {
+    const rc = Number(roomsCount);
+    return Number.isFinite(rc) && rc > 0 ? rc : 1;
+  }, [roomsCount]);
+
+  const parsedGuests = useMemo(() => {
+    const g = Number(guestCount);
+    return Number.isFinite(g) && g > 0 ? g : 1;
+  }, [guestCount]);
+
   const total = useMemo(() => {
     if (!selectedRoom || nights <= 0) return 0;
-    return selectedRoom.price * nights;
-  }, [selectedRoom, nights]);
+
+    // Base: room price * nights * roomsCount
+    let price = selectedRoom.price * nights * parsedRoomsCount;
+
+    // Extra bed charge (simple example: 30% of one room per night)
+    if (extraBed) {
+      const extraPerNight = Math.round(selectedRoom.price * 0.3);
+      price += extraPerNight * nights;
+    }
+
+    // Meal plan charges (must match server logic)
+    if (mealPlan === "BREAKFAST_INCLUDED") {
+      price += 200 * nights * parsedRoomsCount;
+    } else if (mealPlan === "HALF_BOARD") {
+      price += 400 * nights * parsedRoomsCount;
+    } else if (mealPlan === "FULL_BOARD") {
+      price += 600 * nights * parsedRoomsCount;
+    }
+
+    return price;
+  }, [selectedRoom, nights, parsedRoomsCount, extraBed, mealPlan]);
 
   const instantBook = async () => {
     setError(null);
@@ -90,11 +127,19 @@ export default function NewBookingPage() {
       setError("Select room and dates.");
       return;
     }
-    const guestsNum = Number(count);
+
+    const guestsNum = parsedGuests;
     if (!Number.isInteger(guestsNum) || guestsNum <= 0) {
       setError("Guests must be a positive integer.");
       return;
     }
+
+    const roomsNum = parsedRoomsCount;
+    if (!Number.isInteger(roomsNum) || roomsNum <= 0) {
+      setError("Number of rooms must be a positive integer.");
+      return;
+    }
+
     if (!guestId) {
       setError(
         isPrivileged
@@ -140,6 +185,9 @@ export default function NewBookingPage() {
         checkIn,
         checkOut,
         guests: guestsNum,
+        roomsCount: roomsNum,
+        extraBed,
+        mealPlan,
       }),
     });
 
@@ -159,7 +207,6 @@ export default function NewBookingPage() {
       return;
     }
 
-    // For now, send user to My Bookings
     router.push("/my/bookings?created=1");
     router.refresh();
   };
@@ -169,151 +216,229 @@ export default function NewBookingPage() {
     await instantBook();
   };
 
+  // UI helpers
   const label =
-    "block text-xs font-medium mb-1 text-white/80 tracking-wide uppercase";
+    "block text-[11px] font-semibold mb-1 text-white/90 tracking-[0.16em] uppercase";
+
   const input =
-    "w-full h-10 rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/60 outline-none focus:ring-2 focus:ring-cyan-400/40";
+    "w-full h-10 rounded-md border border-cyan-200/40 bg-cyan-900/25 px-3 text-sm text-white placeholder:text-white/65 outline-none focus:ring-2 focus:ring-cyan-400/70 focus:border-cyan-300/80";
+
+  const selectInput =
+    "w-full h-10 rounded-md border border-cyan-200/40 bg-sky-900/30 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400/70 focus:border-cyan-300/80";
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-5">
-        <h1 className="text-2xl font-semibold text-white">New booking</h1>
-        <p className="mt-1 text-sm text-white/70">
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Page heading */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-semibold text-white">New booking</h1>
+        <p className="mt-2 text-sm text-white/85">
           Choose a room, set the dates, and confirm the stay in one step.
         </p>
       </div>
 
-      <div className="glass rounded-3xl p-6 border border-white/15 space-y-5">
+      {/* Card */}
+      <div className="rounded-3xl border border-white/20 bg-sky-900/20 shadow-2xl backdrop-blur-xl p-6 sm:p-7 space-y-6">
         {error && (
-          <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-200">
+          <div className="rounded-2xl border border-red-500/50 bg-red-500/15 p-3 text-xs text-red-100">
             {error}
           </div>
         )}
 
-        <form onSubmit={submit} className="space-y-5">
+        <form onSubmit={submit} className="space-y-6">
           {/* Guest section */}
-          {isPrivileged ? (
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
+              Guest
+            </h2>
+            {isPrivileged ? (
+              <div>
+                <label className={label}>Select guest</label>
+                <select
+                  className={selectInput}
+                  value={guestId}
+                  onChange={(e) => setGuestId(e.target.value)}
+                  required
+                >
+                  {guests.length === 0 && <option value="">No guests found</option>}
+                  {guests.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} {g.email ? `(${g.email})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-white/20 bg-sky-900/25 px-4 py-3">
+                <div className="text-[11px] font-semibold text-white/70 uppercase tracking-wide">
+                  Booked as
+                </div>
+                <div className="mt-1 text-sm text-white">
+                  {(session?.user as any)?.name ||
+                    (session?.user as any)?.email ||
+                    "You"}
+                </div>
+                <p className="mt-1 text-[11px] text-white/70">
+                  Bookings are automatically linked to your profile.
+                </p>
+                {guestId && <input type="hidden" name="guestId" value={guestId} />}
+              </div>
+            )}
+          </section>
+
+          {/* Room section */}
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
+              Room
+            </h2>
             <div>
-              <label className={label}>Guest</label>
+              <label className={label}>Select room</label>
               <select
-                className={input}
-                value={guestId}
-                onChange={(e) => setGuestId(e.target.value)}
+                className={selectInput}
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
                 required
               >
-                {guests.length === 0 && <option value="">No guests found</option>}
-                {guests.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} {g.email ? `(${g.email})` : ""}
+                {!roomId && <option value="">Select a room</option>}
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.title} (₹{r.price}/night, {r.capacity} pax)
                   </option>
                 ))}
               </select>
+              {selectedRoom && (
+                <div className="mt-1 text-xs text-white/80">
+                  Selected: {selectedRoom.title} · ₹{selectedRoom.price}/night ·{" "}
+                  {selectedRoom.capacity} pax
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="rounded-2xl border border-white/15 bg-slate-950/70 p-4">
-              <div className="text-xs font-medium text-white/65 uppercase tracking-wide">
-                Guest
-              </div>
-              <div className="mt-1 text-sm text-white/90">
-                {(session?.user as any)?.name ||
-                  (session?.user as any)?.email ||
-                  "You"}
-              </div>
-              <p className="mt-1 text-[11px] text-white/55">
-                Bookings are automatically linked to your profile.
-              </p>
-              {guestId && <input type="hidden" name="guestId" value={guestId} />}
-            </div>
-          )}
+          </section>
 
-          {/* Room */}
-          <div>
-            <label className={label}>Room</label>
-            <select
-              className={input}
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              required
-            >
-              {!roomId && <option value="">Select a room</option>}
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title} (₹{r.price}/night, {r.capacity} pax)
-                </option>
-              ))}
-            </select>
-            {selectedRoom && (
-              <div className="mt-1 text-xs text-white/65">
-                Selected: {selectedRoom.title} · ₹{selectedRoom.price}/night ·{" "}
-                {selectedRoom.capacity} pax
+          {/* Dates, guests, rooms */}
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
+              Stay details
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div>
+                <label className={label}>Check-in</label>
+                <input
+                  type="date"
+                  className={input}
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  required
+                />
               </div>
-            )}
-          </div>
+              <div>
+                <label className={label}>Check-out</label>
+                <input
+                  type="date"
+                  className={input}
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className={label}>Guests</label>
+                <input
+                  className={input}
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(e.target.value)}
+                  inputMode="numeric"
+                  required
+                />
+              </div>
+              <div>
+                <label className={label}>Rooms</label>
+                <input
+                  className={input}
+                  value={roomsCount}
+                  onChange={(e) => setRoomsCount(e.target.value)}
+                  inputMode="numeric"
+                  required
+                />
+              </div>
+            </div>
+          </section>
 
-          {/* Dates & guests */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={label}>Check-in</label>
-              <input
-                type="date"
-                className="w-full h-10 rounded-md border border-white/15 bg-white/95 text-black px-3 text-sm outline-none"
-                value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                required
-              />
+          {/* Extra bed + meal plan */}
+          <section className="space-y-3">
+            <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
+              Options
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={label}>Extra bed</label>
+                <div className="flex items-center gap-2 text-sm text-white/90">
+                  <input
+                    id="extraBed"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border border-white/80 bg-transparent"
+                    checked={extraBed}
+                    onChange={(e) => setExtraBed(e.target.checked)}
+                  />
+                  <label htmlFor="extraBed" className="text-xs text-white/85">
+                    Add extra bed for this stay (additional charges apply)
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className={label}>Meal plan</label>
+                <select
+                  className={selectInput}
+                  value={mealPlan}
+                  onChange={(e) => setMealPlan(e.target.value as MealPlan)}
+                >
+                  <option value="ROOM_ONLY">Room only</option>
+                  <option value="BREAKFAST_INCLUDED">Breakfast included</option>
+                  <option value="HALF_BOARD">Half board (breakfast + one meal)</option>
+                  <option value="FULL_BOARD">Full board (all meals)</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label className={label}>Check-out</label>
-              <input
-                type="date"
-                className="w-full h-10 rounded-md border border-white/15 bg-white/95 text-black px-3 text-sm outline-none"
-                value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <label className={label}>Guests</label>
-              <input
-                className={input}
-                value={count}
-                onChange={(e) => setCount(e.target.value)}
-                inputMode="numeric"
-                required
-              />
-            </div>
-          </div>
+          </section>
 
-          {/* Summary */}
-          <div className="rounded-2xl border border-white/15 bg-slate-950/80 p-4 text-xs text-white/70 space-y-1">
-            <div>
-              Nights: <span className="font-medium text-white">{nights}</span>
+          {/* Summary – keep dark */}
+          <section className="space-y-2">
+            <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
+              Summary
+            </h2>
+            <div className="rounded-2xl border border-white/18 bg-slate-950/90 p-4 text-xs text-white/80 space-y-1">
+              <div>
+                Nights: <span className="font-medium text-white">{nights}</span>
+              </div>
+              <div>
+                Rooms:{" "}
+                <span className="font-medium text-white">{parsedRoomsCount}</span>
+              </div>
+              <div>
+                Estimated total:{" "}
+                <span className="font-semibold text-emerald-300">
+                  ₹{total.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="text-[11px] text-white/60">
+                Final amount may include taxes and fees. Availability is checked
+                again when you confirm.
+              </div>
             </div>
-            <div>
-              Estimated total:{" "}
-              <span className="font-semibold text-emerald-300">
-                ₹{total.toLocaleString("en-IN")}
-              </span>
-            </div>
-            <div className="text-[11px]">
-              Final amount may include taxes and fees. Availability is checked
-              again when you confirm.
-            </div>
-          </div>
+          </section>
 
           {/* Actions */}
-          <div className="flex flex-wrap gap-3 pt-1">
+          <div className="flex flex-wrap gap-3 pt-2">
             <button
               type="submit"
               disabled={posting}
-              className="btn-glow inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 px-6 py-2.5 text-sm font-medium text-white shadow-md disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 px-6 py-2.5 text-sm font-medium text-white shadow-md disabled:opacity-60"
             >
               {posting ? "Booking…" : "Confirm booking"}
             </button>
             <button
               type="button"
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center rounded-full border border-white/25 bg-transparent px-5 py-2.5 text-sm font-medium text-white/85 hover:bg-white/10"
+              className="inline-flex items-center justify-center rounded-full border border-white/30 bg-transparent px-5 py-2.5 text-sm font-medium text-white/90 hover:bg-white/10"
             >
               Cancel
             </button>

@@ -121,6 +121,21 @@ export async function POST(req: Request) {
   const guests: number | undefined =
     guestsVal != null ? Number(guestsVal) : undefined;
 
+  // NEW FIELDS
+  const roomsCountVal = get("roomsCount");
+  const roomsCount: number =
+    roomsCountVal != null ? Number(roomsCountVal) : 1;
+
+  const extraBedRaw = get("extraBed");
+  const extraBed: boolean =
+    typeof extraBedRaw === "string"
+      ? extraBedRaw === "true" || extraBedRaw === "on" || extraBedRaw === "1"
+      : Boolean(extraBedRaw);
+
+  const mealPlanRaw = get("mealPlan");
+  const mealPlan: string =
+    (typeof mealPlanRaw === "string" && mealPlanRaw) || "ROOM_ONLY";
+
   const role = ((session.user as any)?.role ?? "USER") as string;
 
   // Resolve guestId
@@ -157,9 +172,22 @@ export async function POST(req: Request) {
     }
   }
 
-  if (!roomId || !checkInStr || !checkOutStr || !guests) {
+  if (
+    !roomId ||
+    !checkInStr ||
+    !checkOutStr ||
+    !guests ||
+    !roomsCount
+  ) {
     return NextResponse.json(
       { error: "Missing fields" },
+      { status: 400 }
+    );
+  }
+
+  if (roomsCount < 1) {
+    return NextResponse.json(
+      { error: "roomsCount must be at least 1" },
       { status: 400 }
     );
   }
@@ -180,9 +208,9 @@ export async function POST(req: Request) {
       { status: 404 }
     );
   }
-  if (guests > room.capacity) {
+  if (guests > room.capacity * roomsCount) {
     return NextResponse.json(
-      { error: "Guests exceed room capacity" },
+      { error: "Guests exceed total capacity for selected rooms" },
       { status: 400 }
     );
   }
@@ -206,7 +234,25 @@ export async function POST(req: Request) {
     1,
     Math.ceil((+checkOut - +checkIn) / (1000 * 60 * 60 * 24))
   );
-  const totalPrice = room.price * nights;
+
+  // Base: room price * nights * number of rooms
+  let totalPrice = room.price * nights * roomsCount;
+
+  // Add simple extra‑bed charge (e.g. 30% of one room per night if extraBed is true)
+  if (extraBed) {
+    const extraPerNight = Math.round(room.price * 0.3);
+    totalPrice += extraPerNight * nights;
+  }
+
+  // Adjust price based on meal plan
+  // (You can tweak these multipliers later)
+  if (mealPlan === "BREAKFAST_INCLUDED") {
+    totalPrice += 200 * nights * roomsCount; // example flat add-on
+  } else if (mealPlan === "HALF_BOARD") {
+    totalPrice += 400 * nights * roomsCount;
+  } else if (mealPlan === "FULL_BOARD") {
+    totalPrice += 600 * nights * roomsCount;
+  }
 
   const userId = (session.user as any)?.id
     ? String((session.user as any).id)
@@ -223,6 +269,9 @@ export async function POST(req: Request) {
       guests,
       totalPrice,
       status: "CONFIRMED",
+      roomsCount,
+      extraBed,
+      mealPlan: mealPlan as any,
     },
     select: { id: true },
   });
