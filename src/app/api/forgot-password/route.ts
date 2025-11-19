@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import crypto from "crypto";
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export async function POST(req: Request) {
   try {
@@ -39,6 +40,13 @@ export async function POST(req: Request) {
     });
 
     const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+
+    if (!resend) {
+      console.warn("RESEND_API_KEY is missing; skipping reset email.");
+      return NextResponse.json({
+        message: "Password reset created, but email was not sent (missing API key).",
+      });
+    }
 
     // Send the email
     await resend.emails.send({
