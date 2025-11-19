@@ -100,15 +100,7 @@ export default function EditProfileForm({
         />
       </div>
 
-      <div className="grid gap-2">
-        <label className={label}>Profile image URL</label>
-        <input
-          value={image}
-          onChange={(e) => setImage(e.target.value)}
-          className={input}
-          placeholder="https://example.com/avatar.jpg"
-        />
-      </div>
+     
 
       <div className="grid gap-2">
         <label className={label}>Phone</label>

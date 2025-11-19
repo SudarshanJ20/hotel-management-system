@@ -1,8 +1,9 @@
-// prisma/schema.prisma
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+
 
 generator client {
   provider = "prisma-client-js"
@@ -20,8 +21,8 @@ model User {
   email          String?   @unique
   emailVerified  DateTime?
   image          String?
-  password       String?   // Nullable for Google login users
-  phone          String?   // NEW: contact phone number
+  password       String?
+  phone          String?
   role           Role      @default(USER)
 
   accounts       Account[]
@@ -30,8 +31,7 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  // Relations for convenience
-  bookings       Booking[] // user-created bookings (optional, if you tie bookings to users)
+  bookings       Booking[]
 }
 
 model Account {
@@ -108,16 +108,15 @@ model Booking {
   id         String         @id @default(cuid())
   roomId     String
   guestId    String
-  userId     String?        // optional: which app user created it
+  userId     String?
   checkIn    DateTime
   checkOut   DateTime
   guests     Int
   status     BookingStatus  @default(PENDING)
   totalPrice Int
 
-  // NEW FIELDS
-  roomsCount Int            @default(1)      // number of rooms needed
-  extraBed   Boolean        @default(false)  // extra bed required
+  roomsCount Int            @default(1)
+  extraBed   Boolean        @default(false)
   mealPlan   MealPlan       @default(ROOM_ONLY)
 
   createdAt  DateTime       @default(now())
@@ -146,6 +145,7 @@ enum MealPlan {
   HALF_BOARD
   FULL_BOARD
 }
+
 model PasswordResetToken {
   id        String   @id @default(cuid())
   email     String
