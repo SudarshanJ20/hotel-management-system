@@ -14,8 +14,13 @@ async function getRoom(id: string) {
   return res.json();
 }
 
-export default async function EditRoomPage({ params }: { params: { id: string } }) {
-  const room = await getRoom(params.id);
+export default async function EditRoomPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const room = await getRoom(id);
   if (!room) return <div className="px-6 py-8">Not found</div>;
   return <EditRoom room={room} />;
 }
