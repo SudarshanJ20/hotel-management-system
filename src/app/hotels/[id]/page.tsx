@@ -11,8 +11,13 @@ async function fetchHotel(id: string): Promise<Hotel | null> {
   }
 }
 
-export default async function HotelDetail({ params }: { params: { id: string } }) {
-  const hotel = await fetchHotel(params.id)
+export default async function HotelDetail({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const hotel = await fetchHotel(id)
   if (!hotel) return <div className="text-slate-700">Hotel not found.</div>
 
   return (

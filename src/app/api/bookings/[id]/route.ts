@@ -1,19 +1,21 @@
 // src/app/api/bookings/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { BookingStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/auth/config";
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;
 }
 
-type Params = { params: { id: string } };
+type RouteContext = { params: Promise<{ id: string }> };
 
 // GET /api/bookings/:id
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(_req: Request, context: RouteContext) {
+  const { id } = await context.params;
   const b = await prisma.booking.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       guest: true,
       room: true,
@@ -24,7 +26,8 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 // PATCH /api/bookings/:id (ADMIN or MANAGER)
-export async function PATCH(req: Request, { params }: Params) {
+export async function PATCH(req: Request, context: RouteContext) {
+  const { id } = await context.params;
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
@@ -34,14 +37,14 @@ export async function PATCH(req: Request, { params }: Params) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
 
-  const existing = await prisma.booking.findUnique({ where: { id: params.id } });
+  const existing = await prisma.booking.findUnique({ where: { id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const roomId = (body.roomId as string) ?? existing.roomId;
   const checkIn = body.checkIn ? new Date(body.checkIn) : existing.checkIn;
   const checkOut = body.checkOut ? new Date(body.checkOut) : existing.checkOut;
   const guests = (body.guests as number) ?? existing.guests;
-  const status = (body.status as string) ?? existing.status;
+  const status = (body.status as BookingStatus | undefined) ?? existing.status;
 
   if (!(checkIn < checkOut)) {
     return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
@@ -54,7 +57,7 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   const conflicts = await prisma.booking.findMany({
-    where: { roomId, NOT: { id: params.id } },
+  where: { roomId, NOT: { id } },
     select: { checkIn: true, checkOut: true },
   });
   const hasConflict = conflicts.some((b) => overlaps(checkIn, checkOut, b.checkIn, b.checkOut));
@@ -66,7 +69,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const totalPrice = room.price * nights;
 
   const updated = await prisma.booking.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       roomId,
       checkIn,
@@ -81,14 +84,15 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 // DELETE /api/bookings/:id (ADMIN or MANAGER)
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(_req: Request, context: RouteContext) {
+  const { id } = await context.params;
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const deleted = await prisma.booking.delete({ where: { id: params.id } }).catch(() => null);
+  const deleted = await prisma.booking.delete({ where: { id } }).catch(() => null);
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ ok: true });

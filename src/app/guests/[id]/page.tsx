@@ -17,8 +17,9 @@ export const revalidate = 0;
 export default async function GuestDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await auth();
   const role = ((session?.user as any)?.role ?? "USER") as string;
   const isPrivileged = ["ADMIN", "MANAGER"].includes(role);
@@ -27,7 +28,7 @@ export default async function GuestDetailsPage({
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
   const proto = hdrs.get("x-forwarded-proto") ?? "http";
   const base = host ? `${proto}://${host}` : "";
-  const url = `${base}/api/guests/${params.id}`;
+  const url = `${base}/api/guests/${id}`;
 
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {

@@ -1,15 +1,17 @@
 import EditRoom from "./ui";
 import { headers } from "next/headers";
 
-function absolute(path: string) {
-  const h = headers();
+async function absolute(path: string) {
+  const h = await headers();
   const host = h.get("x-forwarded-host") || h.get("host");
   const proto = h.get("x-forwarded-proto") || "http";
   return `${proto}://${host}${path}`;
 }
 
 async function getRoom(id: string) {
-  const res = await fetch(absolute(`/api/rooms/${id}`), { cache: "no-store" });
+  const res = await fetch(await absolute(`/api/rooms/${id}`), {
+    cache: "no-store",
+  });
   if (!res.ok) return null;
   return res.json();
 }

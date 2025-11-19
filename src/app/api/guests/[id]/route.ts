@@ -2,19 +2,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/auth/config";
 
-type Params = { params: { id: string } };
+type RouteContext = { params: Promise<{ id: string }> };
 
 // GET /api/guests/:id
-export async function GET(_req: Request, { params }: Params) {
-  const guest = await prisma.guest.findUnique({ where: { id: params.id } });
+export async function GET(_req: Request, context: RouteContext) {
+  const { id } = await context.params;
+  const guest = await prisma.guest.findUnique({ where: { id } });
   if (!guest) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(guest);
 }
 
 // PATCH /api/guests/:id (admin only)
-export async function PATCH(req: Request, { params }: Params) {
+export async function PATCH(req: Request, context: RouteContext) {
+  const { id } = await context.params;
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user as any).role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -25,7 +27,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const updated = await prisma.guest
     .update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: body.name?.toString(),
         email: body.email?.toString() ?? null,
@@ -41,15 +43,15 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 // DELETE /api/guests/:id (admin only)
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(_req: Request, context: RouteContext) {
+  const { id } = await context.params;
   const session = await getServerSession(authOptions);
-const role = (session?.user as any)?.role;
-if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
+  const role = (session?.user as any)?.role;
+  if (!role || (role !== "ADMIN" && role !== "MANAGER")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
-
-  const deleted = await prisma.guest.delete({ where: { id: params.id } }).catch(() => null);
+  const deleted = await prisma.guest.delete({ where: { id } }).catch(() => null);
   if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ ok: true });

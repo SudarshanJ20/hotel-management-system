@@ -13,8 +13,8 @@ export async function loginAction(formData: FormData): Promise<AuthResult> {
   const password = String(formData.get('password') || '')
 
   try {
-    const res = await api.post('/auth/login', { email, password })
-    setAuthCookie(res.data?.token, res.data?.expiresIn)
+  const res = await api.post('/auth/login', { email, password })
+  await setAuthCookie(res.data?.token, res.data?.expiresIn)
     return { success: true }
   } catch (error) {
     return { success: false, error: extractErrorMessage(error) }
@@ -27,18 +27,18 @@ export async function registerAction(formData: FormData): Promise<AuthResult> {
   const password = String(formData.get('password') || '')
 
   try {
-    const res = await api.post('/auth/register', { name, email, password })
-    setAuthCookie(res.data?.token, res.data?.expiresIn)
+  const res = await api.post('/auth/register', { name, email, password })
+  await setAuthCookie(res.data?.token, res.data?.expiresIn)
     return { success: true }
   } catch (error) {
     return { success: false, error: extractErrorMessage(error) }
   }
 }
 
-function setAuthCookie(token?: string, expiresIn?: number) {
+async function setAuthCookie(token?: string, expiresIn?: number) {
   if (!token) return
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set(AUTH_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

@@ -1,8 +1,9 @@
 // src/app/api/guests/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/auth/config";
 
 // GET /api/guests?q=&page=&limit=
 export async function GET(req: Request) {
@@ -12,12 +13,12 @@ export async function GET(req: Request) {
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "12", 10), 1), 50);
   const offset = (page - 1) * limit;
 
-  const where = q
+  const where: Prisma.GuestWhereInput = q
     ? {
         OR: [
-          { name: { contains: q, mode: "insensitive" } },
-          { email: { contains: q, mode: "insensitive" } },
-          { phone: { contains: q, mode: "insensitive" } },
+          { name: { contains: q, mode: "insensitive" as const } },
+          { email: { contains: q, mode: "insensitive" as const } },
+          { phone: { contains: q, mode: "insensitive" as const } },
         ],
       }
     : {};

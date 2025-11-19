@@ -22,8 +22,9 @@ function StatusBadge({ status }: { status: string }) {
 export default async function BookingDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const session = await auth();
   const role = ((session?.user as any)?.role ?? "USER") as string;
   const isPrivileged = ["ADMIN", "MANAGER"].includes(role);
@@ -33,7 +34,7 @@ export default async function BookingDetailsPage({
   const proto = hdrs.get("x-forwarded-proto") ?? "http";
   const base = host ? `${proto}://${host}` : "";
 
-  const res = await fetch(`${base}/api/bookings/${params.id}`, {
+  const res = await fetch(`${base}/api/bookings/${id}`, {
     cache: "no-store",
   });
   if (!res.ok) {

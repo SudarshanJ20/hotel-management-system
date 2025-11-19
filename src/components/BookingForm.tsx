@@ -23,11 +23,12 @@ export function BookingForm({ hotelId, roomId }: Props) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!range?.from || !range?.to) {
+    const fromDate = range?.from
+    const toDate = range?.to
+    if (!fromDate || !toDate) {
       setMessage('Please select a date range')
       return
     }
-    const { from: fromDate, to: toDate } = range as Required<DateRange>
     setMessage(null)
     startTransition(async () => {
       try {

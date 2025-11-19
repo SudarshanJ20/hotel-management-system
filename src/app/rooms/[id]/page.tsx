@@ -30,9 +30,9 @@ function StatusBadge({ status }: { status: string }) {
 export default async function RoomDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = await params;
 
   // Get session to decide if privileged
   const session = await auth();

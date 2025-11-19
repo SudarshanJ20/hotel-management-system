@@ -6,7 +6,8 @@ import bcrypt from "bcryptjs";
 
 export async function PATCH(req: Request) {
   const session = await auth();
-  if (!session?.user?.email && !session?.user?.id) {
+  const sessionUser = session?.user as { id?: string } | undefined;
+  if (!session?.user?.email && !sessionUser?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -27,10 +28,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "No changes provided" }, { status: 400 });
   }
 
-  const where =
-    (session.user as any).id
-      ? { id: String((session.user as any).id) }
-      : { email: String(session.user.email) };
+  const email = session?.user?.email;
+  const where = sessionUser?.id
+    ? { id: String(sessionUser.id) }
+    : { email: String(email!) };
 
   // If password change requested, validate current password for credentials users
   if (newPassword) {

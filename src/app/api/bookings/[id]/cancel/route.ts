@@ -1,13 +1,14 @@
 // src/app/api/bookings/[id]/cancel/route.ts
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/auth/config";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(
   _req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -15,7 +16,7 @@ export async function POST(
 
   const role = ((session.user as any)?.role ?? "USER") as string;
   const booking = await prisma.booking.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       guest: { select: { email: true, name: true } },
       room: { select: { title: true } },

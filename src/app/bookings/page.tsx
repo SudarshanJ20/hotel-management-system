@@ -139,7 +139,7 @@ export default async function BookingsPage() {
     );
   }
 
-  const hdrs = headers();
+  const hdrs = await headers();
   const { baseUrl, searchSuffix, createdFlag } = extractRequestMeta(hdrs);
   const listUrl = joinInternalUrl(baseUrl, `/api/bookings${searchSuffix}`);
 

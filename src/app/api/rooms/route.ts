@@ -1,8 +1,9 @@
 // src/app/api/rooms/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/auth/config";
 
 // GET /api/rooms?q=&limit=&page=
 export async function GET(req: Request) {
@@ -12,11 +13,11 @@ export async function GET(req: Request) {
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "12", 10), 1), 50);
   const offset = (page - 1) * limit;
 
-  const where = q
+  const where: Prisma.RoomWhereInput = q
     ? {
         OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
+          { title: { contains: q, mode: "insensitive" as const } },
+          { description: { contains: q, mode: "insensitive" as const } },
         ],
       }
     : {};

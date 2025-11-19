@@ -7,12 +7,15 @@ import { useSession } from "next-auth/react";
 
 export default function EditProfileForm({
   initialName,
+  initialImage,
   initialPhone,
 }: {
   initialName: string;
+  initialImage?: string;
   initialPhone?: string;
 }) {
   const [name, setName] = useState(initialName);
+  const [image, setImage] = useState(initialImage ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -34,6 +37,7 @@ export default function EditProfileForm({
       try {
         const payload: any = {
           name,
+          image,
           phone,
         };
 
@@ -93,6 +97,16 @@ export default function EditProfileForm({
           onChange={(e) => setName(e.target.value)}
           className={input}
           placeholder="Your name"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <label className={label}>Profile image URL</label>
+        <input
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+          className={input}
+          placeholder="https://example.com/avatar.jpg"
         />
       </div>
 
