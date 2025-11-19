@@ -1,5 +1,8 @@
 // src/app/api/auth/[...nextauth]/route.ts
-import NextAuth, { type NextAuthOptions, type User as NextAuthUser } from "next-auth";
+import NextAuth, {
+  type NextAuthOptions,
+  type User as NextAuthUser,
+} from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
@@ -19,7 +22,7 @@ const MANAGER_EMAILS = new Set<string>(
     .filter(Boolean)
 );
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   providers: [
@@ -46,7 +49,9 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Missing email or password");
         }
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
         if (!user || !user.password) {
           throw new Error("Invalid credentials");
         }
@@ -79,7 +84,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       // Load DB role + latest name/image if id exists
-      // Always refresh from DB on "update" trigger (when profile changes)
       if (userId) {
         const dbUser = await prisma.user.findUnique({
           where: { id: String(userId) },
@@ -121,7 +125,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).id = (token as any)?.sub;
         (session.user as any).role = (token as any)?.role ?? "USER";
 
-        // KEY FIX: copy name and image from token into session.user
+        // copy name and image from token into session.user
         session.user.name = token.name as string | undefined;
         session.user.image = (token as any).picture as string | undefined;
       }
