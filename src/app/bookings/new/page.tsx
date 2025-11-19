@@ -1,7 +1,6 @@
-// src/app/bookings/new/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -10,7 +9,7 @@ type Room = { id: string; title: string; price: number; capacity: number };
 
 type MealPlan = "ROOM_ONLY" | "BREAKFAST_INCLUDED" | "HALF_BOARD" | "FULL_BOARD";
 
-export default function NewBookingPage() {
+function NewBookingForm() {
   const router = useRouter();
   const search = useSearchParams();
   const { data: session } = useSession();
@@ -25,7 +24,6 @@ export default function NewBookingPage() {
   const [checkOut, setCheckOut] = useState("");
   const [guestCount, setGuestCount] = useState("1");
 
-  // NEW STATE
   const [roomsCount, setRoomsCount] = useState("1");
   const [extraBed, setExtraBed] = useState(false);
   const [mealPlan, setMealPlan] = useState<MealPlan>("ROOM_ONLY");
@@ -33,9 +31,13 @@ export default function NewBookingPage() {
   const [error, setError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
 
+  const today = useMemo(() => {
+    const now = new Date();
+    return now.toISOString().split("T")[0];
+  }, []);
+
   useEffect(() => {
     const load = async () => {
-      // Rooms
       const roomsRes = await fetch("/api/rooms", { cache: "no-store" });
       const roomsJson = await roomsRes.json();
       const roomsList: Room[] = Array.isArray(roomsJson)
@@ -43,7 +45,6 @@ export default function NewBookingPage() {
         : roomsJson.items ?? [];
       setRooms(roomsList);
 
-      // Preselect from query param if present
       const qpRoomId = search.get("roomId");
       if (!roomId) {
         if (qpRoomId && roomsList.some((r) => r.id === qpRoomId)) {
@@ -54,14 +55,12 @@ export default function NewBookingPage() {
       }
 
       if (isPrivileged) {
-        // Load all guests for staff selection
         const gRes = await fetch("/api/guests", { cache: "no-store" });
         const gJson = await gRes.json();
         const gList: Guest[] = gJson.items ?? [];
         setGuests(gList);
         if (!guestId && gList.length) setGuestId(gList[0].id);
       } else {
-        // USER: resolve their own guest record
         const me = await fetch("/api/guests/me", {
           cache: "no-store",
         })
@@ -71,7 +70,6 @@ export default function NewBookingPage() {
       }
     };
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPrivileged]);
 
   const selectedRoom = useMemo(
@@ -100,16 +98,13 @@ export default function NewBookingPage() {
   const total = useMemo(() => {
     if (!selectedRoom || nights <= 0) return 0;
 
-    // Base: room price * nights * roomsCount
     let price = selectedRoom.price * nights * parsedRoomsCount;
 
-    // Extra bed charge (simple example: 30% of one room per night)
     if (extraBed) {
       const extraPerNight = Math.round(selectedRoom.price * 0.3);
       price += extraPerNight * nights;
     }
 
-    // Meal plan charges (must match server logic)
     if (mealPlan === "BREAKFAST_INCLUDED") {
       price += 200 * nights * parsedRoomsCount;
     } else if (mealPlan === "HALF_BOARD") {
@@ -125,6 +120,23 @@ export default function NewBookingPage() {
     setError(null);
     if (!roomId || !checkIn || !checkOut) {
       setError("Select room and dates.");
+      return;
+    }
+
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
+    const todayDate = new Date(today);
+
+    if (checkInDate < todayDate) {
+      setError("Check-in date cannot be in the past.");
+      return;
+    }
+    if (checkOutDate < todayDate) {
+      setError("Check-out date cannot be in the past.");
+      return;
+    }
+    if (checkOutDate <= checkInDate) {
+      setError("Check-out date must be after check-in date.");
       return;
     }
 
@@ -151,23 +163,19 @@ export default function NewBookingPage() {
 
     setPosting(true);
 
-    // 1) Availability check for quick feedback
     const availResp = await fetch("/api/bookings/availability", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ roomId, checkIn, checkOut }),
     });
+
     if (!availResp.ok) {
       const text = await availResp.text().catch(() => "");
       setPosting(false);
-      setError(
-        `Availability failed: ${availResp.status} ${availResp.statusText} ${text.slice(
-          0,
-          100
-        )}`
-      );
+      setError(`Availability failed`);
       return;
     }
+
     const avail = await availResp.json().catch(() => null);
     if (!avail?.ok) {
       setPosting(false);
@@ -175,7 +183,6 @@ export default function NewBookingPage() {
       return;
     }
 
-    // 2) Create booking
     const res = await fetch("/api/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -192,20 +199,13 @@ export default function NewBookingPage() {
     });
 
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
       setPosting(false);
-      setError(
-        `Create failed: ${res.status} ${res.statusText} ${text.slice(0, 120)}`
-      );
+      setError("Failed to create booking.");
       return;
     }
 
     const created = await res.json().catch(() => null);
     setPosting(false);
-    if (!created?.id) {
-      setError("Booking created but no id returned.");
-      return;
-    }
 
     router.push("/my/bookings?created=1");
     router.refresh();
@@ -216,7 +216,6 @@ export default function NewBookingPage() {
     await instantBook();
   };
 
-  // UI helpers
   const label =
     "block text-[11px] font-semibold mb-1 text-white/90 tracking-[0.16em] uppercase";
 
@@ -224,11 +223,10 @@ export default function NewBookingPage() {
     "w-full h-10 rounded-md border border-cyan-200/40 bg-cyan-900/25 px-3 text-sm text-white placeholder:text-white/65 outline-none focus:ring-2 focus:ring-cyan-400/70 focus:border-cyan-300/80";
 
   const selectInput =
-    "w-full h-10 rounded-md border border-cyan-200/40 bg-sky-900/30 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400/70 focus:border-cyan-300/80";
+    "w-full h-10 rounded-md border border-cyan-300/40 bg-sky-900/40 px-3 text-sm text-white outline-none focus:ring-2 focus:ring-cyan-400/70 focus:border-cyan-300/80 cursor-pointer";
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Page heading */}
       <div className="mb-6">
         <h1 className="text-3xl font-semibold text-white">New booking</h1>
         <p className="mt-2 text-sm text-white/85">
@@ -236,7 +234,6 @@ export default function NewBookingPage() {
         </p>
       </div>
 
-      {/* Card */}
       <div className="rounded-3xl border border-white/20 bg-sky-900/20 shadow-2xl backdrop-blur-xl p-6 sm:p-7 space-y-6">
         {error && (
           <div className="rounded-2xl border border-red-500/50 bg-red-500/15 p-3 text-xs text-red-100">
@@ -245,11 +242,12 @@ export default function NewBookingPage() {
         )}
 
         <form onSubmit={submit} className="space-y-6">
-          {/* Guest section */}
+          {/* Guest */}
           <section className="space-y-3">
             <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
               Guest
             </h2>
+
             {isPrivileged ? (
               <div>
                 <label className={label}>Select guest</label>
@@ -259,9 +257,12 @@ export default function NewBookingPage() {
                   onChange={(e) => setGuestId(e.target.value)}
                   required
                 >
-                  {guests.length === 0 && <option value="">No guests found</option>}
                   {guests.map((g) => (
-                    <option key={g.id} value={g.id}>
+                    <option
+                      key={g.id}
+                      value={g.id}
+                      className="bg-slate-900 text-white"
+                    >
                       {g.name} {g.email ? `(${g.email})` : ""}
                     </option>
                   ))}
@@ -274,47 +275,41 @@ export default function NewBookingPage() {
                 </div>
                 <div className="mt-1 text-sm text-white">
                   {(session?.user as any)?.name ||
-                    (session?.user as any)?.email ||
-                    "You"}
+                    (session?.user as any)?.email}
                 </div>
                 <p className="mt-1 text-[11px] text-white/70">
                   Bookings are automatically linked to your profile.
                 </p>
-                {guestId && <input type="hidden" name="guestId" value={guestId} />}
               </div>
             )}
           </section>
 
-          {/* Room section */}
+          {/* Room selection */}
           <section className="space-y-3">
             <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
               Room
             </h2>
-            <div>
-              <label className={label}>Select room</label>
-              <select
-                className={selectInput}
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                required
-              >
-                {!roomId && <option value="">Select a room</option>}
-                {rooms.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.title} (₹{r.price}/night, {r.capacity} pax)
-                  </option>
-                ))}
-              </select>
-              {selectedRoom && (
-                <div className="mt-1 text-xs text-white/80">
-                  Selected: {selectedRoom.title} · ₹{selectedRoom.price}/night ·{" "}
-                  {selectedRoom.capacity} pax
-                </div>
-              )}
-            </div>
+
+            <label className={label}>Select room</label>
+            <select
+              className={selectInput}
+              value={roomId}
+              onChange={(e) => setRoomId(e.target.value)}
+              required
+            >
+              {rooms.map((r) => (
+                <option
+                  key={r.id}
+                  value={r.id}
+                  className="bg-slate-900 text-white"
+                >
+                  {r.title} (₹{r.price}/night, {r.capacity} pax)
+                </option>
+              ))}
+            </select>
           </section>
 
-          {/* Dates, guests, rooms */}
+          {/* Dates & values */}
           <section className="space-y-3">
             <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
               Stay details
@@ -327,9 +322,11 @@ export default function NewBookingPage() {
                   className={input}
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
+                  min={today}
                   required
                 />
               </div>
+
               <div>
                 <label className={label}>Check-out</label>
                 <input
@@ -337,9 +334,11 @@ export default function NewBookingPage() {
                   className={input}
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
+                  min={checkIn || today}
                   required
                 />
               </div>
+
               <div>
                 <label className={label}>Guests</label>
                 <input
@@ -350,6 +349,7 @@ export default function NewBookingPage() {
                   required
                 />
               </div>
+
               <div>
                 <label className={label}>Rooms</label>
                 <input
@@ -363,12 +363,14 @@ export default function NewBookingPage() {
             </div>
           </section>
 
-          {/* Extra bed + meal plan */}
+          {/* Options */}
           <section className="space-y-3">
             <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
               Options
             </h2>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Extra bed */}
               <div>
                 <label className={label}>Extra bed</label>
                 <div className="flex items-center gap-2 text-sm text-white/90">
@@ -380,48 +382,68 @@ export default function NewBookingPage() {
                     onChange={(e) => setExtraBed(e.target.checked)}
                   />
                   <label htmlFor="extraBed" className="text-xs text-white/85">
-                    Add extra bed for this stay (additional charges apply)
+                    Add extra bed (additional charges apply)
                   </label>
                 </div>
               </div>
+
+              {/* Meal plan */}
               <div>
                 <label className={label}>Meal plan</label>
                 <select
                   className={selectInput}
                   value={mealPlan}
-                  onChange={(e) => setMealPlan(e.target.value as MealPlan)}
+                  onChange={(e) =>
+                    setMealPlan(e.target.value as MealPlan)
+                  }
                 >
-                  <option value="ROOM_ONLY">Room only</option>
-                  <option value="BREAKFAST_INCLUDED">Breakfast included</option>
-                  <option value="HALF_BOARD">Half board (breakfast + one meal)</option>
-                  <option value="FULL_BOARD">Full board (all meals)</option>
+                  <option value="ROOM_ONLY" className="bg-slate-900 text-white">
+                    Room only
+                  </option>
+                  <option
+                    value="BREAKFAST_INCLUDED"
+                    className="bg-slate-900 text-white"
+                  >
+                    Breakfast included
+                  </option>
+                  <option
+                    value="HALF_BOARD"
+                    className="bg-slate-900 text-white"
+                  >
+                    Half board
+                  </option>
+                  <option
+                    value="FULL_BOARD"
+                    className="bg-slate-900 text-white"
+                  >
+                    Full board
+                  </option>
                 </select>
               </div>
             </div>
           </section>
 
-          {/* Summary – keep dark */}
+          {/* Summary */}
           <section className="space-y-2">
             <h2 className="text-[11px] font-semibold tracking-[0.18em] uppercase text-white/75">
               Summary
             </h2>
+
             <div className="rounded-2xl border border-white/18 bg-slate-950/90 p-4 text-xs text-white/80 space-y-1">
               <div>
                 Nights: <span className="font-medium text-white">{nights}</span>
               </div>
               <div>
                 Rooms:{" "}
-                <span className="font-medium text-white">{parsedRoomsCount}</span>
+                <span className="font-medium text-white">
+                  {parsedRoomsCount}
+                </span>
               </div>
               <div>
                 Estimated total:{" "}
                 <span className="font-semibold text-emerald-300">
                   ₹{total.toLocaleString("en-IN")}
                 </span>
-              </div>
-              <div className="text-[11px] text-white/60">
-                Final amount may include taxes and fees. Availability is checked
-                again when you confirm.
               </div>
             </div>
           </section>
@@ -435,6 +457,7 @@ export default function NewBookingPage() {
             >
               {posting ? "Booking…" : "Confirm booking"}
             </button>
+
             <button
               type="button"
               onClick={() => router.back()}
@@ -446,5 +469,23 @@ export default function NewBookingPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function NewBookingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="rounded-3xl border border-white/20 bg-sky-900/20 shadow-2xl backdrop-blur-xl p-6 sm:p-7">
+            <div className="text-center text-white/70">
+              Loading booking form...
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <NewBookingForm />
+    </Suspense>
   );
 }

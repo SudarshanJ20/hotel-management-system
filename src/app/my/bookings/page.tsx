@@ -65,7 +65,45 @@ export default function MyBookingsPage() {
         });
         const data = await res.json();
         console.log("MyBookingsPage client data:", data);
-        setItems(Array.isArray(data.items) ? data.items : []);
+        
+        // Filter out past bookings and delete them automatically
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Set to start of today for accurate comparison
+        
+        const currentAndFutureBookings: BookingItem[] = [];
+        const pastBookingIds: string[] = [];
+
+        for (const booking of Array.isArray(data.items) ? data.items : []) {
+          const checkOutDate = new Date(booking.checkOut);
+          checkOutDate.setHours(0, 0, 0, 0);
+          
+          if (checkOutDate < now) {
+            // Past booking - mark for deletion
+            pastBookingIds.push(booking.id);
+          } else {
+            // Current or future booking - keep it
+            currentAndFutureBookings.push(booking);
+          }
+        }
+
+        // Set only current and future bookings
+        setItems(currentAndFutureBookings);
+
+        // Delete past bookings in the background
+        if (pastBookingIds.length > 0) {
+          console.log(`Deleting ${pastBookingIds.length} past bookings...`);
+          pastBookingIds.forEach(async (bookingId) => {
+            try {
+              await fetch(`/api/bookings/${bookingId}`, {
+                method: "DELETE",
+                credentials: "include",
+              });
+              console.log(`Deleted past booking: ${bookingId}`);
+            } catch (error) {
+              console.error(`Failed to delete booking ${bookingId}:`, error);
+            }
+          });
+        }
       } catch (e) {
         console.error("Failed to load bookings", e);
         setItems([]);
@@ -105,7 +143,7 @@ export default function MyBookingsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">My bookings</h1>
           <p className="mt-1 text-sm text-white/60">
-            View and manage all your upcoming and past stays.
+            View and manage all your upcoming and current stays.
           </p>
         </div>
         <Link

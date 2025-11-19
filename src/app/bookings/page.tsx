@@ -81,7 +81,49 @@ export default async function BookingsPage() {
   }
 
   const payload = await res.json().catch(() => ({ items: [] as Booking[] }));
-  const items: Booking[] = payload.items ?? [];
+  const allItems: Booking[] = payload.items ?? [];
+
+  // Filter out past bookings and prepare for deletion
+  const now = new Date();
+  now.setHours(0, 0, 0, 0); // Set to start of today
+
+  const currentAndFutureBookings: Booking[] = [];
+  const pastBookingIds: string[] = [];
+
+  for (const booking of allItems) {
+    const checkOutDate = new Date(booking.checkOut);
+    checkOutDate.setHours(0, 0, 0, 0);
+
+    if (checkOutDate < now) {
+      // Past booking - mark for deletion
+      pastBookingIds.push(booking.id);
+    } else {
+      // Current or future booking - keep it
+      currentAndFutureBookings.push(booking);
+    }
+  }
+
+  // Delete past bookings in the background (server-side)
+  if (pastBookingIds.length > 0) {
+    console.log(`[Admin Bookings] Deleting ${pastBookingIds.length} past bookings...`);
+    
+    // Delete bookings asynchronously without blocking the page render
+    Promise.all(
+      pastBookingIds.map(async (bookingId) => {
+        try {
+          await fetch(`${base}/api/bookings/${bookingId}`, {
+            method: "DELETE",
+            cache: "no-store",
+          });
+          console.log(`[Admin Bookings] Deleted past booking: ${bookingId}`);
+        } catch (error) {
+          console.error(`[Admin Bookings] Failed to delete booking ${bookingId}:`, error);
+        }
+      })
+    ).catch((err) => console.error("[Admin Bookings] Bulk deletion error:", err));
+  }
+
+  const items = currentAndFutureBookings;
 
   // Optional created banner if staff creates and returns here with ?created=1
   const created = (hdrs.get("x-search") || "").includes("created=1");
@@ -93,7 +135,7 @@ export default async function BookingsPage() {
         <div>
           <h1 className="text-2xl font-semibold text-white">Bookings</h1>
           <p className="text-sm text-white/70 mt-1">
-            Manage upcoming stays, track status, and review guest details.
+            Manage current and upcoming stays, track status, and review guest details.
           </p>
         </div>
         {isPrivileged && (
@@ -144,11 +186,10 @@ export default async function BookingsPage() {
                   </div>
                   <div className="text-xs text-white/65">
                     {new Date(b.checkIn).toDateString()} →{" "}
-                    {new Date(b.checkOut).toDateString()} • {b.guests} guest
-                    {b.guests > 1 ? "s" : ""}
+                    {new Date(b.checkOut).toDateString()}
                   </div>
                   <div className="text-xs text-white/55">
-                    Room: {b.room.title}
+                    Guests: {b.guests} • Room: {b.room.title}
                   </div>
                   {extras.length > 0 && (
                     <div className="text-[11px] text-white/55">
