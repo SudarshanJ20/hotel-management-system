@@ -17,6 +17,10 @@ const nextConfig = {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60, // cache optimized images for 1 minute in dev/proxy envs
   },
+  // Disable ESLint during production builds (for Vercel) to avoid circular JSON error
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // If you deploy behind a proxy/CDN, add:
   // output: "standalone",
 };
