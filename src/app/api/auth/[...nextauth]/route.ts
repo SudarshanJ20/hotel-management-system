@@ -10,7 +10,6 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
 // Allowlists via env
-// ADMIN has highest privileges. MANAGER can do CRUD for rooms/guests/bookings but not site settings.
 const ADMIN_EMAILS = new Set<string>(
   [process.env.ADMIN_EMAIL].filter((e): e is string => !!e)
 );
@@ -22,6 +21,7 @@ const MANAGER_EMAILS = new Set<string>(
     .filter(Boolean)
 );
 
+// NOTE: no `export` here
 const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -30,7 +30,6 @@ const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       profile(profile) {
-        // Normalize Google profile into NextAuth User shape
         return {
           id: profile.sub,
           name: profile.name,
@@ -70,11 +69,9 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    // Attach role + basic user info to JWT
     async jwt({ token, user, trigger }) {
       let userId = (user as any)?.id ?? token.sub;
 
-      // First-time OAuth: get id by email
       if (!userId && token.email) {
         const byEmail = await prisma.user.findUnique({
           where: { email: token.email as string },
@@ -83,7 +80,6 @@ const authOptions: NextAuthOptions = {
         if (byEmail) userId = String(byEmail.id);
       }
 
-      // Load DB role + latest name/image if id exists
       if (userId) {
         const dbUser = await prisma.user.findUnique({
           where: { id: String(userId) },
@@ -94,7 +90,6 @@ const authOptions: NextAuthOptions = {
           (token as any).sub = String(dbUser.id);
           const email = dbUser.email ?? (token.email as string | undefined);
 
-          // Always keep latest name/image from DB on the token
           token.name = dbUser.name ?? token.name;
           token.picture = dbUser.image ?? (token.picture as string | undefined);
 
@@ -108,7 +103,6 @@ const authOptions: NextAuthOptions = {
         }
       }
 
-      // Fresh Google sign-in before DB role update
       if (user && (user as any).email) {
         const email = (user as any).email as string;
         if (ADMIN_EMAILS.has(email)) (token as any).role = "ADMIN";
@@ -119,13 +113,10 @@ const authOptions: NextAuthOptions = {
       return token;
     },
 
-    // Mirror id, role, name, image into session
     async session({ session, token }) {
       if (session.user) {
         (session.user as any).id = (token as any)?.sub;
         (session.user as any).role = (token as any)?.role ?? "USER";
-
-        // copy name and image from token into session.user
         session.user.name = token.name as string | undefined;
         session.user.image = (token as any).picture as string | undefined;
       }
