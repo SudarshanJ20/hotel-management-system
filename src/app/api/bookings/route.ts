@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { Resend } from "resend";
-
-const resend = new Resend(process.env.RESEND_API_KEY!);
 
 // Overlap check
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -202,43 +199,6 @@ export async function POST(req: Request) {
       room: true,
     },
   });
-
-  // ★ SEND EMAIL
-  if (created.guest.email) {
-    try {
-      const emailResult: any = await resend.emails.send({
-        from: "Acme <onboarding@resend.dev>",
-        to: created.guest.email,
-        subject: "Your Hotel Booking Confirmation ✔",
-        html: `
-          <div style="font-family:Arial;padding:20px;">
-            <h2>Booking Confirmed</h2>
-            <p>Hi <strong>${created.guest.name}</strong>,</p>
-            <p>Your hotel booking is confirmed. Here are your details:</p>
-
-            <h3>Booking Info</h3>
-            <p>Room: <strong>${created.room.title}</strong></p>
-            <p>Check-in: ${created.checkIn.toDateString()}</p>
-            <p>Check-out: ${created.checkOut.toDateString()}</p>
-            <p>Guests: ${created.guests}</p>
-            <p>Total Price: ₹${created.totalPrice}</p>
-
-            <h3>Extras</h3>
-            <p>Meal plan: ${created.mealPlan}</p>
-            <p>Rooms booked: ${created.roomsCount}</p>
-            <p>Extra Bed: ${created.extraBed ? "Yes" : "No"}</p>
-
-            <hr/>
-            <p>Thank you for booking with us!</p>
-          </div>
-        `,
-      });
-
-      console.log("EMAIL SENT →", emailResult);
-    } catch (err) {
-      console.error("EMAIL SEND FAILED →", err);
-    }
-  }
 
   return NextResponse.json({ id: created.id }, { status: 201 });
 }
