@@ -67,48 +67,28 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
-      let userId = (user as any)?.id ?? token.sub;
-
-      if (!userId && token.email) {
-        const byEmail = await prisma.user.findUnique({
-          where: { email: token.email as string },
-          select: { id: true },
-        });
-        if (byEmail) userId = String(byEmail.id);
+      // When user logs in (Google or credentials), copy basic fields into token
+      if (user) {
+        const anyUser = user as any;
+        token.sub = anyUser.id ?? token.sub;
+        token.email = anyUser.email ?? token.email;
+        token.name = anyUser.name ?? token.name;
+        token.picture = anyUser.image ?? (token as any).picture;
       }
 
-      if (userId) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: String(userId) },
-          select: { id: true, role: true, email: true, name: true, image: true },
-        });
-
-        if (dbUser) {
-          (token as any).sub = String(dbUser.id);
-          const email = dbUser.email ?? (token.email as string | undefined);
-
-          token.name = dbUser.name ?? token.name;
-          token.picture = dbUser.image ?? (token.picture as string | undefined);
-
-          if (email && ADMIN_EMAILS.has(email)) {
-            (token as any).role = "ADMIN";
-          } else if (email && MANAGER_EMAILS.has(email)) {
-            (token as any).role = "MANAGER";
-          } else {
-            (token as any).role = dbUser.role ?? (token as any).role;
-          }
-        }
+      // Role from email + env sets (no Prisma here)
+      const email = (token.email ?? (token as any).email) as string | undefined;
+      if (email && ADMIN_EMAILS.has(email)) {
+        (token as any).role = "ADMIN";
+      } else if (email && MANAGER_EMAILS.has(email)) {
+        (token as any).role = "MANAGER";
+      } else if (!(token as any).role) {
+        (token as any).role = "USER";
       }
 
-      if (user && (user as any).email) {
-        const email = (user as any).email as string;
-        if (ADMIN_EMAILS.has(email)) (token as any).role = "ADMIN";
-        else if (MANAGER_EMAILS.has(email)) (token as any).role = "MANAGER";
-      }
-
-      if (!(token as any).role) (token as any).role = "USER";
       return token;
     },
 
