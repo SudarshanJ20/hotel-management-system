@@ -1,32 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-function Toast({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <div className="fixed inset-x-0 top-4 z-50 flex justify-center">
-      <div className="animate-[fade-in_0.2s_ease-out] rounded-full bg-black/80 px-4 py-2 text-sm text-white shadow-lg backdrop-blur">
-        {message}
-      </div>
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-6px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
+import FloatingToast from "@/components/ui/FloatingToast";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,42 +14,59 @@ export default function LoginPage() {
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [toast, setToast] = useState("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const scheduleRedirect = useCallback((callback: () => void, delayMs: number) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(callback, delayMs);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const redirectTarget = "/";
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
+  const onSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setErr(null);
 
-    start(async () => {
-      const res = await signIn("credentials", {
-        email,
-        password: pwd,
-        redirect: false,
+      start(async () => {
+        const res = await signIn("credentials", {
+          email,
+          password: pwd,
+          redirect: false,
+        });
+
+        if (res?.error) {
+          setErr(res.error);
+          return;
+        }
+
+        setToast("Logged in successfully");
+        scheduleRedirect(() => router.push(redirectTarget), 900);
       });
+    },
+    [email, pwd, redirectTarget, router, scheduleRedirect, start]
+  );
 
-      if (res?.error) {
-        setErr(res.error);
-        return;
-      }
-
-      setToast("Logged in successfully");
-      setTimeout(() => {
-        router.push(redirectTarget);
-      }, 900);
-    });
-  };
-
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = useCallback(() => {
     setToast("Signing you in with Google…");
-    setTimeout(() => {
+    scheduleRedirect(() => {
       signIn("google", { callbackUrl: redirectTarget });
     }, 400);
-  };
+  }, [redirectTarget, scheduleRedirect]);
 
   return (
     <div className="min-h-[100vh] flex items-center justify-center px-4">
-      <Toast message={toast} />
+  <FloatingToast message={toast} />
 
       <div className="relative flex w-full max-w-5xl items-center gap-10 lg:gap-16">
 

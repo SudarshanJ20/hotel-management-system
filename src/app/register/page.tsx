@@ -1,31 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-function Toast({ message }: { message: string }) {
-  if (!message) return null;
-  return (
-    <div className="fixed inset-x-0 top-4 z-50 flex justify-center">
-      <div className="animate-[fade-in_0.2s_ease-out] rounded-full bg-black/80 px-4 py-2 text-sm text-white shadow-lg backdrop-blur">
-        {message}
-      </div>
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(-6px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-    </div>
-  );
-}
+import FloatingToast from "@/components/ui/FloatingToast";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -36,40 +14,57 @@ export default function RegisterPage() {
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [toast, setToast] = useState("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const onSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setMsg(null);
-    setErr(null);
+  const scheduleRedirect = useCallback((callback: () => void, delayMs: number) => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(callback, delayMs);
+  }, []);
 
-    start(async () => {
-      try {
-        const res = await fetch("/api/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, password: pwd }),
-        });
-
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j?.error || "Failed to register");
-        }
-
-        setMsg("Account created. Redirecting to login…");
-        setToast("Account created successfully");
-
-        setTimeout(() => {
-          router.push("/login");
-        }, 900);
-      } catch (e: any) {
-        setErr(e.message || "Something went wrong");
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
-    });
-  };
+    };
+  }, []);
+
+  const onSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      setMsg(null);
+      setErr(null);
+
+      start(async () => {
+        try {
+          const res = await fetch("/api/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password: pwd }),
+          });
+
+          if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j?.error || "Failed to register");
+          }
+
+          setMsg("Account created. Redirecting to login…");
+          setToast("Account created successfully");
+          scheduleRedirect(() => router.push("/login"), 900);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Something went wrong";
+          setErr(message);
+        }
+      });
+    },
+    [email, name, pwd, router, scheduleRedirect, start]
+  );
 
   return (
     <div className="min-h-[100vh] flex items-center justify-center px-4">
-      <Toast message={toast} />
+      <FloatingToast message={toast} />
 
       <div className="relative flex w-full max-w-5xl items-center gap-10 lg:gap-16">
 

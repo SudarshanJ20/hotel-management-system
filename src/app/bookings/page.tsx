@@ -24,19 +24,97 @@ type Booking = {
 // my name is ramnath
 export const revalidate = 0;
 
+const STATUS_BADGE_BASE =
+  "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border";
+const STATUS_CLASS_MAP: Record<string, string> = {
+  CONFIRMED: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  PENDING: "border-amber-500/40 bg-amber-500/10 text-amber-200",
+  CANCELLED: "border-red-500/40 bg-red-500/10 text-red-300",
+  CHECKED_IN: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  CHECKED_OUT: "border-indigo-500/40 bg-indigo-500/10 text-indigo-300",
+};
+
+type BookingResponse = {
+  items?: Booking[];
+};
+
+type RequestMeta = {
+  baseUrl: string;
+  searchSuffix: string;
+  createdFlag: boolean;
+};
+
 function StatusBadge({ status }: { status: string }) {
-  const base =
-    "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium border";
-  const map: Record<string, string> = {
-    CONFIRMED: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-    PENDING: "border-amber-500/40 bg-amber-500/10 text-amber-200",
-    CANCELLED: "border-red-500/40 bg-red-500/10 text-red-300",
-    CHECKED_IN: "border-sky-500/40 bg-sky-500/10 text-sky-300",
-    CHECKED_OUT: "border-indigo-500/40 bg-indigo-500/10 text-indigo-300",
-  };
-  const cls = map[status] ?? "border-white/25 bg-white/5 text-white/70";
-  return <span className={`${base} ${cls}`}>{status}</span>;
+  const cls = STATUS_CLASS_MAP[status] ?? "border-white/25 bg-white/5 text-white/70";
+  return <span className={`${STATUS_BADGE_BASE} ${cls}`}>{status}</span>;
 }
+
+function extractRequestMeta(hdrs: Headers): RequestMeta {
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
+  const proto = hdrs.get("x-forwarded-proto") ?? "http";
+  const baseUrl = host ? `${proto}://${host}` : "";
+  const searchSuffix = hdrs.get("x-search") ?? "";
+  return {
+    baseUrl,
+    searchSuffix,
+    createdFlag: searchSuffix.includes("created=1"),
+  };
+}
+
+function partitionBookings(bookings: Booking[], today: Date) {
+  const current: Booking[] = [];
+  const pastIds: string[] = [];
+
+  for (const booking of bookings) {
+    const checkOutDate = new Date(booking.checkOut);
+    checkOutDate.setHours(0, 0, 0, 0);
+
+    if (checkOutDate < today) {
+      pastIds.push(booking.id);
+    } else {
+      current.push(booking);
+    }
+  }
+
+  return { current, pastIds } as const;
+}
+
+const joinInternalUrl = (baseUrl: string, path: string) => (baseUrl ? `${baseUrl}${path}` : path);
+
+async function deletePastBookings(baseUrl: string, bookingIds: string[]) {
+  try {
+    await Promise.all(
+      bookingIds.map(async (bookingId) => {
+        try {
+          await fetch(joinInternalUrl(baseUrl, `/api/bookings/${bookingId}`), {
+            method: "DELETE",
+            cache: "no-store",
+          });
+          console.log(`[Admin Bookings] Deleted past booking: ${bookingId}`);
+        } catch (error) {
+          console.error(`[Admin Bookings] Failed to delete booking ${bookingId}:`, error);
+        }
+      })
+    );
+  } catch (err) {
+    console.error("[Admin Bookings] Bulk deletion error:", err);
+  }
+}
+
+const formatExtras = (booking: Booking) => {
+  const extras: string[] = [];
+  if (booking.roomsCount && booking.roomsCount > 1) {
+    extras.push(`${booking.roomsCount} rooms`);
+  }
+  if (booking.extraBed) {
+    extras.push("Extra bed");
+  }
+  if (booking.mealPlan && booking.mealPlan !== "ROOM_ONLY") {
+    const label = booking.mealPlan.replace(/_/g, " ").toLowerCase();
+    extras.push(label.charAt(0).toUpperCase() + label.slice(1));
+  }
+  return extras;
+};
 
 export default async function BookingsPage() {
   const session = await auth();
@@ -61,14 +139,9 @@ export default async function BookingsPage() {
     );
   }
 
-  const hdrs = await headers();
-  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
-  const proto = hdrs.get("x-forwarded-proto") ?? "http";
-  const base = host ? `${proto}://${host}` : "";
-
-  // Pass any filters from the URL to the API
-  const search = hdrs.get("x-search") ?? "";
-  const listUrl = `${base}/api/bookings${search}`;
+  const hdrs = headers();
+  const { baseUrl, searchSuffix, createdFlag } = extractRequestMeta(hdrs);
+  const listUrl = joinInternalUrl(baseUrl, `/api/bookings${searchSuffix}`);
 
   const res = await fetch(listUrl, { cache: "no-store" });
   if (!res.ok) {
@@ -80,53 +153,17 @@ export default async function BookingsPage() {
     );
   }
 
-  const payload = await res.json().catch(() => ({ items: [] as Booking[] }));
+  const payload: BookingResponse = await res.json().catch(() => ({ items: [] }));
   const allItems: Booking[] = payload.items ?? [];
 
-  // Filter out past bookings and prepare for deletion
-  const now = new Date();
-  now.setHours(0, 0, 0, 0); // Set to start of today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const { current: items, pastIds } = partitionBookings(allItems, today);
 
-  const currentAndFutureBookings: Booking[] = [];
-  const pastBookingIds: string[] = [];
-
-  for (const booking of allItems) {
-    const checkOutDate = new Date(booking.checkOut);
-    checkOutDate.setHours(0, 0, 0, 0);
-
-    if (checkOutDate < now) {
-      // Past booking - mark for deletion
-      pastBookingIds.push(booking.id);
-    } else {
-      // Current or future booking - keep it
-      currentAndFutureBookings.push(booking);
-    }
+  if (pastIds.length > 0) {
+    console.log(`[Admin Bookings] Deleting ${pastIds.length} past bookings...`);
+    void deletePastBookings(baseUrl, pastIds);
   }
-
-  // Delete past bookings in the background (server-side)
-  if (pastBookingIds.length > 0) {
-    console.log(`[Admin Bookings] Deleting ${pastBookingIds.length} past bookings...`);
-    
-    // Delete bookings asynchronously without blocking the page render
-    Promise.all(
-      pastBookingIds.map(async (bookingId) => {
-        try {
-          await fetch(`${base}/api/bookings/${bookingId}`, {
-            method: "DELETE",
-            cache: "no-store",
-          });
-          console.log(`[Admin Bookings] Deleted past booking: ${bookingId}`);
-        } catch (error) {
-          console.error(`[Admin Bookings] Failed to delete booking ${bookingId}:`, error);
-        }
-      })
-    ).catch((err) => console.error("[Admin Bookings] Bulk deletion error:", err));
-  }
-
-  const items = currentAndFutureBookings;
-
-  // Optional created banner if staff creates and returns here with ?created=1
-  const created = (hdrs.get("x-search") || "").includes("created=1");
 
   return (
     <div className="space-y-6">
@@ -148,7 +185,7 @@ export default async function BookingsPage() {
         )}
       </div>
 
-      {created && (
+      {createdFlag && (
         <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200">
           Booking created successfully.
         </div>
@@ -162,18 +199,7 @@ export default async function BookingsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((b) => {
-            const extras: string[] = [];
-            if (b.roomsCount && b.roomsCount > 1) {
-              extras.push(`${b.roomsCount} rooms`);
-            }
-            if (b.extraBed) {
-              extras.push("Extra bed");
-            }
-            if (b.mealPlan && b.mealPlan !== "ROOM_ONLY") {
-              const label = b.mealPlan.replace(/_/g, " ").toLowerCase();
-              extras.push(label.charAt(0).toUpperCase() + label.slice(1));
-            }
-
+            const extras = formatExtras(b);
             return (
               <Link
                 key={b.id}
