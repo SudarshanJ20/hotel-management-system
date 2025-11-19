@@ -21,7 +21,7 @@ type Booking = {
     phone: string | null;
   };
 };
-
+// my name is ramnath
 export const revalidate = 0;
 
 function StatusBadge({ status }: { status: string }) {
