@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
   // Check room availability for the booking's dates
   const overlapping = await prisma.booking.findFirst({
-    where: {
+    where: { 
       roomId,
       id: { not: bookingId },
       status: { in: [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN] },
